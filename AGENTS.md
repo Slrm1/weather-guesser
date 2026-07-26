@@ -2,9 +2,13 @@
 
 ## Cursor Cloud specific instructions
 
-`weather-guesser` is a single-service front-end web app (Vite + React +
-TypeScript). There is no backend or database. It calls two **keyless** external
-services at runtime:
+`weather-guesser` (historical repo name) is a single-service front-end web app
+(Vite + React + TypeScript): a **DMV emergency-response CAD dispatch
+simulation**. The simulation core is pure/deterministic and lives in `src/sim/`
+(`engine.ts` `tick()` advances state; `geo.ts`, `stations.ts`, `types.ts`);
+`App.tsx` runs it on a `setInterval` heartbeat and renders the map + CAD panel.
+There is no backend or database. It calls two **keyless** external services at
+runtime:
 
 - **Open-Meteo** (`api.open-meteo.com`, `geocoding-api.open-meteo.com`) for live
   weather + geocoding.

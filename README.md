@@ -1,15 +1,29 @@
 # weather-guesser
 
-An interactive **weather predictor** built around **live forecasts** and
-**simulation**:
+> Note: the repository name is historical. The app is now a **DMV Emergency
+> Response** simulator.
 
-1. **Pick a location** on a world map (click the map, search a city, or hit
-   “Surprise me”).
-2. **See the prediction** — the app pulls *live* current conditions and a 5-day
-   forecast from [Open-Meteo](https://open-meteo.com/).
-3. **See the ripple effects** — a response/impact simulation shows how that
-   weather drives modelled systems (energy demand, irrigation need, traffic
-   risk).
+A browser-based, **living CAD dispatch simulation** of the Washington, DC /
+Northern Virginia / Southern Maryland (DMV) region:
+
+1. **A living map** — real DMV fire, EMS, police, and hospital facilities are
+   placed on an interactive [MapLibre](https://maplibre.org/) map.
+2. **Emergent incidents** — medical, fire, crime, traffic, and HazMat calls are
+   generated over time, weighted by time-of-day (rush hour, overnight) and by
+   **live DC weather** from [Open-Meteo](https://open-meteo.com/) (bad weather
+   raises traffic-collision likelihood). Click the map to report your own.
+3. **Automatic dispatch & response** — the nearest available appropriate unit is
+   dispatched, drives to the scene, works the call, then returns to quarters.
+   Units and incidents animate on the map; a CAD panel shows the clock, unit
+   availability, an incident queue (with manual **Dispatch**), and a radio log.
+
+### Scope note
+
+This is an achievable, web-scale slice of the "emergency response simulator"
+concept — a real regional map with an unscripted incident/dispatch loop. It is
+**not** a photorealistic 3D world: there is no ray tracing, no per-building
+interiors, no millions-of-agents traffic sim, and no multiplayer. Those belong
+to a native game engine and are out of scope for this repo.
 
 Built with **Vite + React + TypeScript**, **MapLibre GL JS** (via
 `react-map-gl`) for the map, and **Open-Meteo** for weather. **No API keys or
@@ -64,19 +78,21 @@ npm run dev      # start the dev server at http://localhost:5173
 index.html                     # Vite entry HTML
 src/
   main.tsx                     # React entry point
-  App.tsx                      # Orchestrates map, forecast display, and panels
-  game.ts                      # RNG + city list (used by quick-pick & simulation)
+  App.tsx                      # CAD dispatch UI (map + clock + incidents + radio log)
+  game.ts                      # Seeded RNG helper + sample city list
+  sim/
+    geo.ts                     # Haversine distance + move-toward helpers
+    types.ts                   # Station / Unit / Incident / SimState types
+    stations.ts                # Real DMV facilities + incident hotspots
+    engine.ts                  # Pure sim: spawn, dispatch, movement, resolution
   components/
     MapView.tsx                # Provider selector (MapLibre default, Mapbox if token)
-    MapLibreMapView.tsx        # Keyless MapLibre map (Carto Voyager + 3D globe)
+    MapLibreMapView.tsx        # Keyless MapLibre map (Carto Voyager), renders markers
     MapboxMapView.tsx          # Mapbox GL map (used when VITE_MAPBOX_TOKEN is set)
+    MarkerContent.tsx          # Shared marker rendering (stations/units/incidents)
     mapTypes.ts                # Shared map props/ref types + env config
-    ForecastStrip.tsx          # 5-day forecast strip
-    SimulationPanel.tsx        # Response/impact simulation bars
   weather/
     openMeteo.ts               # Open-Meteo client + offline simulation fallback
-  simulation/
-    response.ts                # Pure weather-response models (energy/irrigation/traffic)
   *.test.ts(x)                 # Vitest unit + component tests
   index.css                    # Styles
   test/setup.ts                # Test setup (jest-dom matchers)

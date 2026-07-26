@@ -1,195 +1,307 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import MapView from './components/MapView';
-import type { GameMapRef } from './components/mapTypes';
-import SimulationPanel from './components/SimulationPanel';
-import ForecastStrip from './components/ForecastStrip';
-import { pickRandomCity } from './game';
-import { simulateResponses } from './simulation/response';
+import type { MapMarker } from './components/mapTypes';
+import {
+  addIncidentAt,
+  createInitialState,
+  dispatchIncident,
+  fmtClock,
+  makeRng,
+  tick,
+} from './sim/engine';
+import { HOTSPOTS, STATIONS } from './sim/stations';
+import { haversineKm } from './sim/geo';
+import type {
+  IncidentCategory,
+  SimState,
+  StationKind,
+  Unit,
+  UnitStatus,
+  UnitType,
+} from './sim/types';
 import {
   describeWeatherCode,
   fetchWeather,
-  geocodeCity,
-  type GeoResult,
   type WeatherSnapshot,
 } from './weather/openMeteo';
 
-type Phase = 'idle' | 'loading' | 'loaded';
+const DMV_VIEW = { longitude: -77.04, latitude: 38.9, zoom: 9.2 };
+const TICK_MS = 1000;
+const SPEEDS = { Slow: 3, Normal: 8, Fast: 24 } as const;
+type SpeedName = keyof typeof SPEEDS;
 
-interface Selection {
-  latitude: number;
-  longitude: number;
-  label: string;
+const UNIT_EMOJI: Record<UnitType, string> = { fire: '🚒', ems: '🚑', police: '🚓' };
+const STATION_EMOJI: Record<StationKind, string> = { fire: '🚒', ems: '🚑', police: '🚓', hospital: '🏥' };
+const CATEGORY_EMOJI: Record<IncidentCategory, string> = {
+  medical: '🩺',
+  fire: '🔥',
+  crime: '🚨',
+  traffic: '💥',
+  hazmat: '☣️',
+};
+const PRIORITY_COLOR: Record<1 | 2 | 3, string> = { 1: '#e02424', 2: '#f0820c', 3: '#eab308' };
+const UNIT_STATUS_COLOR: Record<UnitStatus, string> = {
+  available: '#94a3b8',
+  enroute: '#2563eb',
+  onscene: '#f59e0b',
+  returning: '#16a34a',
+};
+
+function weatherTrafficBias(w: WeatherSnapshot | null): number {
+  if (!w) return 0;
+  let b = 0;
+  if (w.precipitationMm > 0.2) b += 0.6;
+  const c = w.weatherCode;
+  if (c >= 71 && c <= 77) b += 1.2;
+  else if (c >= 61) b += 0.5;
+  else if (c >= 45 && c <= 48) b += 0.4;
+  return b;
+}
+
+function nearestHotspot(lat: number, lon: number): string {
+  let best = HOTSPOTS[0];
+  let bestD = Infinity;
+  for (const h of HOTSPOTS) {
+    const d = haversineKm({ lat, lon }, { lat: h.lat, lon: h.lon });
+    if (d < bestD) {
+      bestD = d;
+      best = h;
+    }
+  }
+  return best.name;
 }
 
 export default function App() {
-  const mapRef = useRef<GameMapRef>(null);
-  const requestId = useRef(0);
-
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const [sim, setSim] = useState<SimState>(() => createInitialState());
+  const [running, setRunning] = useState(true);
+  const [speed, setSpeed] = useState<SpeedName>('Normal');
+  const [autoDispatch, setAutoDispatch] = useState(true);
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
-  const [phase, setPhase] = useState<Phase>('idle');
 
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<GeoResult[]>([]);
-  const [searching, setSearching] = useState(false);
+  const seedRef = useRef(1);
+  const trafficBias = useMemo(() => weatherTrafficBias(weather), [weather]);
 
-  const flyTo = useCallback((latitude: number, longitude: number, zoom = 6) => {
-    mapRef.current?.flyTo({ center: [longitude, latitude], zoom, duration: 1400 });
+  // Load current DC weather once (affects traffic-incident likelihood).
+  useEffect(() => {
+    let active = true;
+    fetchWeather(38.9072, -77.0369)
+      .then((w) => {
+        if (active) setWeather(w);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const loadLocation = useCallback(
-    async (latitude: number, longitude: number, label: string) => {
-      const id = ++requestId.current;
-      setSelection({ latitude, longitude, label });
-      setWeather(null);
-      setPhase('loading');
-      const w = await fetchWeather(latitude, longitude);
-      if (id !== requestId.current) return; // a newer selection superseded this one
-      setWeather(w);
-      setPhase('loaded');
-    },
-    [],
-  );
-
-  const onMapSelect = useCallback(
-    (latitude: number, longitude: number) => {
-      void loadLocation(
-        latitude,
-        longitude,
-        `Pinned location (${latitude.toFixed(2)}, ${longitude.toFixed(2)})`,
+  // The simulation heartbeat.
+  useEffect(() => {
+    if (!running) return;
+    const dtMin = SPEEDS[speed];
+    const handle = setInterval(() => {
+      seedRef.current += 1;
+      setSim((s) =>
+        tick(s, dtMin, {
+          rng: makeRng(seedRef.current * 2654435761),
+          trafficBias,
+          autoDispatch,
+        }),
       );
-    },
-    [loadLocation],
+    }, TICK_MS);
+    return () => clearInterval(handle);
+  }, [running, speed, autoDispatch, trafficBias]);
+
+  const activeIncidents = useMemo(
+    () =>
+      sim.incidents
+        .filter((i) => i.status !== 'resolved')
+        .sort((a, b) => a.priority - b.priority || a.createdMin - b.createdMin),
+    [sim.incidents],
   );
 
-  async function runSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setSearching(true);
-    try {
-      const found = await geocodeCity(query.trim());
-      setResults(found);
-    } catch {
-      setResults([]);
-    } finally {
-      setSearching(false);
-    }
+  const available = useMemo(() => {
+    const counts: Record<UnitType, number> = { fire: 0, ems: 0, police: 0 };
+    for (const u of sim.units) if (u.status === 'available') counts[u.type] += 1;
+    return counts;
+  }, [sim.units]);
+
+  const respondingCount = sim.units.filter((u: Unit) => u.status !== 'available').length;
+
+  const markers: MapMarker[] = useMemo(() => {
+    const stationMarkers: MapMarker[] = STATIONS.map((s) => ({
+      id: `st-${s.id}`,
+      latitude: s.lat,
+      longitude: s.lon,
+      emoji: STATION_EMOJI[s.kind],
+      color: '#e2e8f0',
+      kind: 'station',
+      title: s.name,
+    }));
+    const unitMarkers: MapMarker[] = sim.units
+      .filter((u) => u.status !== 'available')
+      .map((u) => ({
+        id: `un-${u.id}`,
+        latitude: u.lat,
+        longitude: u.lon,
+        emoji: UNIT_EMOJI[u.type],
+        color: UNIT_STATUS_COLOR[u.status],
+        kind: 'unit',
+        title: `${u.callSign} (${u.status})`,
+      }));
+    const incidentMarkers: MapMarker[] = sim.incidents
+      .filter((i) => i.status !== 'resolved')
+      .map((i) => ({
+        id: `in-${i.id}`,
+        latitude: i.lat,
+        longitude: i.lon,
+        emoji: CATEGORY_EMOJI[i.category],
+        color: PRIORITY_COLOR[i.priority],
+        kind: 'incident',
+        title: `${i.id} ${i.label}`,
+        pulse: i.status === 'pending' || i.status === 'assigned',
+      }));
+    return [...stationMarkers, ...unitMarkers, ...incidentMarkers];
+  }, [sim.units, sim.incidents]);
+
+  function handleMapClick(lat: number, lon: number) {
+    seedRef.current += 1;
+    setSim((s) => addIncidentAt(s, lat, lon, makeRng(seedRef.current * 40503)));
   }
 
-  function chooseResult(r: GeoResult) {
-    setResults([]);
-    setQuery('');
-    const label = [r.name, r.admin1, r.country].filter(Boolean).join(', ');
-    flyTo(r.latitude, r.longitude);
-    void loadLocation(r.latitude, r.longitude, label);
-  }
-
-  function surpriseMe() {
-    const city = pickRandomCity();
-    flyTo(city.latitude, city.longitude);
-    void loadLocation(city.latitude, city.longitude, `${city.emoji} ${city.name}, ${city.country}`);
-  }
-
-  const responses = useMemo(
-    () => (weather ? simulateResponses(weather) : []),
-    [weather],
-  );
+  const day = Math.floor(sim.minutes / 1440) + 1;
   const condition = weather ? describeWeatherCode(weather.weatherCode) : null;
 
   return (
     <div className="page">
       <header className="header">
-        <h1>🌍 Weather Predictor</h1>
+        <h1>🚨 DMV Emergency Response</h1>
         <p className="subtitle">
-          Pick a spot on the map to see its live conditions and 5-day forecast,
-          plus how that weather ripples through simulated systems.
+          A living CAD dispatch simulation of Washington, DC, Northern Virginia,
+          and Southern Maryland. Incidents emerge over time; units auto-dispatch,
+          respond, and return. Click the map to report an incident.
         </p>
       </header>
 
       <main className="layout">
         <section className="map-pane" aria-label="map">
-          <MapView ref={mapRef} marker={selection} onSelect={onMapSelect} />
+          <MapView markers={markers} initialView={DMV_VIEW} onSelect={handleMapClick} />
         </section>
 
-        <aside className="panel">
-          <form className="search" onSubmit={runSearch}>
-            <input
-              type="text"
-              placeholder="Search a city…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search a city"
-            />
-            <button type="submit" className="secondary" disabled={searching}>
-              {searching ? '…' : 'Search'}
-            </button>
-            <button type="button" className="secondary" onClick={surpriseMe}>
-              Surprise me
-            </button>
-          </form>
-
-          {results.length > 0 && (
-            <ul className="results" data-testid="search-results">
-              {results.map((r) => (
-                <li key={`${r.latitude},${r.longitude}`}>
-                  <button type="button" onClick={() => chooseResult(r)}>
-                    {[r.name, r.admin1, r.country].filter(Boolean).join(', ')}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {phase === 'idle' && (
-            <p className="hint" data-testid="hint">
-              Click anywhere on the map, search a city, or hit “Surprise me” to
-              get a forecast.
-            </p>
-          )}
-
-          {phase === 'loading' && <p className="hint">Loading forecast…</p>}
-
-          {phase === 'loaded' && selection && weather && condition && (
-            <section className="forecast-panel" aria-label="forecast" data-testid="forecast-panel">
-              <h2 className="location">{selection.label}</h2>
-
-              <div className="current">
-                <span className="current-emoji" aria-hidden="true">{condition.emoji}</span>
-                <div className="current-main">
-                  <span className="current-temp" data-testid="current-temp">
-                    {weather.tempC}°C
-                  </span>
-                  <span className="current-cond">{condition.label}</span>
-                </div>
+        <aside className="panel cad">
+          <div className="cad-top">
+            <div className="clock" data-testid="clock">
+              <span className="clock-time">{fmtClock(sim.minutes)}</span>
+              <span className="clock-day">Day {day}</span>
+            </div>
+            {weather && condition && (
+              <div className="weather-chip" title="Live DC weather (Open-Meteo)">
+                <span aria-hidden="true">{condition.emoji}</span> {weather.tempC}°C
+                {trafficBias > 0 && <span className="wx-warn"> · traffic risk ↑</span>}
               </div>
-              <p className="meta">
-                Feels like {weather.apparentTempC}°C · wind {weather.windKmh} km/h
-                · precip {weather.precipitationMm} mm
-              </p>
-              <p className={`source source-${weather.source}`}>
-                {weather.source === 'live'
-                  ? 'Live forecast from Open-Meteo'
-                  : 'Offline simulated forecast (API unreachable)'}
-              </p>
+            )}
+          </div>
 
-              <ForecastStrip daily={weather.daily} />
-              <SimulationPanel metrics={responses} />
+          <div className="controls">
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setRunning((r) => !r)}
+            >
+              {running ? '⏸ Pause' : '▶ Resume'}
+            </button>
+            <div className="speed">
+              {(Object.keys(SPEEDS) as SpeedName[]).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className={`secondary${speed === name ? ' active' : ''}`}
+                  onClick={() => setSpeed(name)}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={autoDispatch}
+                onChange={(e) => setAutoDispatch(e.target.checked)}
+              />
+              Auto-dispatch
+            </label>
+          </div>
 
-              <button
-                type="button"
-                className="primary"
-                onClick={() => {
-                  setPhase('idle');
-                  setSelection(null);
-                  setWeather(null);
-                  // Return the map to the initial global overview.
-                  mapRef.current?.flyTo({ center: [10, 25], zoom: 1.4, duration: 1200 });
-                }}
-              >
-                Clear
-              </button>
-            </section>
-          )}
+          <div className="stats" data-testid="stats">
+            <div className="stat">
+              <span className="stat-num">{activeIncidents.length}</span>
+              <span className="stat-label">Active</span>
+            </div>
+            <div className="stat">
+              <span className="stat-num">{respondingCount}</span>
+              <span className="stat-label">Responding</span>
+            </div>
+            <div className="stat">
+              <span className="stat-num">{sim.resolvedCount}</span>
+              <span className="stat-label">Cleared</span>
+            </div>
+            <div className="stat avail">
+              <span className="stat-num">
+                🚒{available.fire} 🚑{available.ems} 🚓{available.police}
+              </span>
+              <span className="stat-label">Available</span>
+            </div>
+          </div>
+
+          <h2 className="section-title">Active incidents</h2>
+          <ul className="incident-list" data-testid="incident-list">
+            {activeIncidents.length === 0 && (
+              <li className="empty">No active incidents. All quiet.</li>
+            )}
+            {activeIncidents.map((i) => {
+              const unit = i.assignedUnitId
+                ? sim.units.find((u) => u.id === i.assignedUnitId)
+                : null;
+              return (
+                <li key={i.id} className="incident">
+                  <span
+                    className="prio"
+                    style={{ background: PRIORITY_COLOR[i.priority] }}
+                    title={`Priority ${i.priority}`}
+                  >
+                    P{i.priority}
+                  </span>
+                  <div className="incident-body">
+                    <div className="incident-title">
+                      <span aria-hidden="true">{CATEGORY_EMOJI[i.category]}</span>{' '}
+                      {i.label}
+                      <span className="incident-id"> · {i.id}</span>
+                    </div>
+                    <div className="incident-meta">
+                      {nearestHotspot(i.lat, i.lon)} ·{' '}
+                      <span className={`status status-${i.status}`}>{i.status}</span>
+                      {unit && ` · ${unit.callSign}`}
+                    </div>
+                  </div>
+                  {i.status === 'pending' && (
+                    <button
+                      type="button"
+                      className="dispatch-btn"
+                      onClick={() => setSim((s) => dispatchIncident(s, i.id))}
+                    >
+                      Dispatch
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          <h2 className="section-title">Radio log</h2>
+          <ul className="radio-log" data-testid="radio-log">
+            {sim.log.slice(0, 12).map((line, idx) => (
+              <li key={idx}>{line}</li>
+            ))}
+          </ul>
         </aside>
       </main>
     </div>

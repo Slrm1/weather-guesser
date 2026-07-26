@@ -12,12 +12,14 @@ import {
   type GameMapRef,
   type MapViewProps,
 } from './mapTypes';
+import { MarkerContent } from './MarkerContent';
 
 // Mapbox's modern 3D style; override with VITE_MAP_STYLE if desired.
 const DEFAULT_MAPBOX_STYLE = 'mapbox://styles/mapbox/standard';
+const DEFAULT_VIEW = { longitude: -77.04, latitude: 38.9, zoom: 9.2 };
 
 const MapboxMapView = forwardRef<GameMapRef, MapViewProps>(function MapboxMapView(
-  { marker, onSelect },
+  { markers, initialView, onSelect },
   ref,
 ) {
   const mapRef = useRef<MapRef>(null);
@@ -35,21 +37,19 @@ const MapboxMapView = forwardRef<GameMapRef, MapViewProps>(function MapboxMapVie
     <Map
       ref={mapRef}
       mapboxAccessToken={MAPBOX_TOKEN}
-      initialViewState={{ longitude: 10, latitude: 25, zoom: 1.4 }}
+      initialViewState={initialView ?? DEFAULT_VIEW}
       mapStyle={STYLE_OVERRIDE ?? DEFAULT_MAPBOX_STYLE}
-      projection={{ name: 'globe' }}
-      onClick={(e: MapMouseEvent) => onSelect(e.lngLat.lat, e.lngLat.lng)}
+      onClick={
+        onSelect ? (e: MapMouseEvent) => onSelect(e.lngLat.lat, e.lngLat.lng) : undefined
+      }
       style={{ width: '100%', height: '100%' }}
     >
       <NavigationControl position="top-right" showCompass={false} />
-      {marker && (
-        <Marker
-          longitude={marker.longitude}
-          latitude={marker.latitude}
-          color="#e0501f"
-          anchor="bottom"
-        />
-      )}
+      {markers.map((m) => (
+        <Marker key={m.id} longitude={m.longitude} latitude={m.latitude} anchor="center">
+          <MarkerContent marker={m} />
+        </Marker>
+      ))}
     </Map>
   );
 });

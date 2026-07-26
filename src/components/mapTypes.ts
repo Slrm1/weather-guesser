@@ -1,6 +1,18 @@
+export interface MapMarker {
+  id: string;
+  latitude: number;
+  longitude: number;
+  emoji: string;
+  color: string;
+  kind: 'station' | 'unit' | 'incident';
+  title?: string;
+  pulse?: boolean;
+}
+
 export interface MapViewProps {
-  marker: { latitude: number; longitude: number } | null;
-  onSelect: (latitude: number, longitude: number) => void;
+  markers: MapMarker[];
+  initialView?: { longitude: number; latitude: number; zoom: number };
+  onSelect?: (latitude: number, longitude: number) => void;
 }
 
 export interface FlyToOptions {

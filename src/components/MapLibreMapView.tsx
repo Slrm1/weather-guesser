@@ -7,12 +7,14 @@ import Map, {
 } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { STYLE_OVERRIDE, type GameMapRef, type MapViewProps } from './mapTypes';
+import { MarkerContent } from './MarkerContent';
 
 // Carto "Voyager" is a polished, keyless vector style (no API token required).
 const KEYLESS_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+const DEFAULT_VIEW = { longitude: -77.04, latitude: 38.9, zoom: 9.2 };
 
 const MapLibreMapView = forwardRef<GameMapRef, MapViewProps>(function MapLibreMapView(
-  { marker, onSelect },
+  { markers, initialView, onSelect },
   ref,
 ) {
   const mapRef = useRef<MapRef>(null);
@@ -29,32 +31,20 @@ const MapLibreMapView = forwardRef<GameMapRef, MapViewProps>(function MapLibreMa
   return (
     <Map
       ref={mapRef}
-      initialViewState={{ longitude: 10, latitude: 25, zoom: 1.4 }}
+      initialViewState={initialView ?? DEFAULT_VIEW}
       mapStyle={STYLE_OVERRIDE ?? KEYLESS_STYLE}
-      onClick={(e: MapLayerMouseEvent) => onSelect(e.lngLat.lat, e.lngLat.lng)}
-      onLoad={(e) => {
-        // MapLibre v5 supports a 3D globe projection for a more modern look.
-        const map = e.target as unknown as {
-          setProjection?: (p: { type: string }) => void;
-        };
-        try {
-          map.setProjection?.({ type: 'globe' });
-        } catch {
-          /* projection unsupported — fall back to the default flat map */
-        }
-      }}
+      onClick={
+        onSelect ? (e: MapLayerMouseEvent) => onSelect(e.lngLat.lat, e.lngLat.lng) : undefined
+      }
       style={{ width: '100%', height: '100%' }}
       attributionControl={{ compact: true }}
     >
       <NavigationControl position="top-right" showCompass={false} />
-      {marker && (
-        <Marker
-          longitude={marker.longitude}
-          latitude={marker.latitude}
-          color="#e0501f"
-          anchor="bottom"
-        />
-      )}
+      {markers.map((m) => (
+        <Marker key={m.id} longitude={m.longitude} latitude={m.latitude} anchor="center">
+          <MarkerContent marker={m} />
+        </Marker>
+      ))}
     </Map>
   );
 });
