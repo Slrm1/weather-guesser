@@ -182,6 +182,8 @@ export default function App() {
                   setPhase('idle');
                   setSelection(null);
                   setWeather(null);
+                  // Return the map to the initial global overview.
+                  mapRef.current?.flyTo({ center: [10, 25], zoom: 1.4, duration: 1200 });
                 }}
               >
                 Clear

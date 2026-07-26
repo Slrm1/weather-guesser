@@ -38,7 +38,7 @@ body {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
   gap: 1.25rem;
-  align-items: stretch;
+  align-items: start;
 }
 
 @media (max-width: 860px) {
@@ -49,7 +49,9 @@ body {
 
 .map-pane {
   position: relative;
-  min-height: 520px;
+  /* Fixed height keeps the map stable regardless of the side panel's content,
+     which avoids MapLibre canvas resize glitches when the panel grows/shrinks. */
+  height: 560px;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 12px 30px rgba(31, 78, 121, 0.15);
