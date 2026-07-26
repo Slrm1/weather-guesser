@@ -8,6 +8,13 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Always reserve the scrollbar gutter so toggling the (tall) forecast panel
+     doesn't change the layout width. A width shift otherwise leaves the
+     MapLibre canvas slightly mis-sized (thin blank edges) until the next move. */
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
 }
