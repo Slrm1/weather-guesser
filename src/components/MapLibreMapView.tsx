@@ -20,6 +20,8 @@ interface MapLibreMap {
   addSource: (id: string, src: unknown) => void;
   setTerrain: (t: unknown) => void;
   setSky: (s: unknown) => void;
+  once?: (ev: string, cb: () => void) => void;
+  triggerRepaint?: () => void;
 }
 
 function enable3D(map: MapLibreMap) {
@@ -33,18 +35,18 @@ function enable3D(map: MapLibreMap) {
         maxzoom: 14,
       });
     }
-    map.setTerrain({ source: 'terrain-dem', exaggeration: 1.4 });
+    map.setTerrain({ source: 'terrain-dem', exaggeration: 1.3 });
   } catch {
     /* terrain unsupported — keep the flat map */
   }
   try {
     map.setSky({
-      'sky-color': '#9ecbf0',
-      'sky-horizon-blend': 0.5,
-      'horizon-color': '#ffffff',
-      'horizon-fog-blend': 0.5,
-      'fog-color': '#e6eef6',
-      'fog-ground-blend': 0.5,
+      'sky-color': '#8fc0ee',
+      'sky-horizon-blend': 0.6,
+      'horizon-color': '#eaf3fb',
+      'horizon-fog-blend': 0.6,
+      'fog-color': '#dfeaf5',
+      'fog-ground-blend': 0.4,
     });
   } catch {
     /* sky unsupported */
@@ -66,13 +68,20 @@ const MapLibreMapView = forwardRef<GameMapRef, MapViewProps>(function MapLibreMa
       }),
   }));
 
+  const view = initialView ?? DEFAULT_VIEW;
+
   return (
     <Map
       ref={mapRef}
-      initialViewState={initialView ?? DEFAULT_VIEW}
+      // Construct already tilted; the render loop is kicked below so it paints in 3D.
+      initialViewState={view}
       maxPitch={80}
       mapStyle={STYLE_OVERRIDE ?? KEYLESS_STYLE}
-      onLoad={(e) => enable3D(e.target as unknown as MapLibreMap)}
+      onLoad={(e) => {
+        const map = e.target as unknown as MapLibreMap;
+        enable3D(map);
+        map.once?.('idle', () => map.triggerRepaint?.());
+      }}
       onClick={
         onSelect ? (e: MapLayerMouseEvent) => onSelect(e.lngLat.lat, e.lngLat.lng) : undefined
       }

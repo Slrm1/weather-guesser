@@ -6,8 +6,9 @@
 A browser-based, **living CAD dispatch simulation** of the Washington, DC /
 Northern Virginia / Southern Maryland (DMV) region:
 
-1. **A living map** — real DMV fire, EMS, police, and hospital facilities are
-   placed on an interactive [MapLibre](https://maplibre.org/) map.
+1. **A living 3D map** — real DMV fire, EMS, police, and hospital facilities on
+   an interactive [MapLibre](https://maplibre.org/) map with a tilted camera,
+   terrain relief, and 3D building extrusions (zoom into DC to see them).
 2. **Emergent incidents** — medical, fire, crime, traffic, and HazMat calls are
    generated over time, weighted by time-of-day (rush hour, overnight) and by
    **live DC weather** from [Open-Meteo](https://open-meteo.com/) (bad weather
@@ -16,6 +17,14 @@ Northern Virginia / Southern Maryland (DMV) region:
    dispatched, drives to the scene, works the call, then returns to quarters.
    Units and incidents animate on the map; a CAD panel shows the clock, unit
    availability, an incident queue (with manual **Dispatch**), and a radio log.
+4. **Traffic + weather** — a regional traffic index (by time-of-day, amplified
+   by live weather), a **Traffic log** of corridor congestion (I-495, I-66,
+   I-395, …), and an explicit weather→traffic impact readout.
+
+> Rendering note: MapLibre renders on demand. In a normal focused browser the
+> map shows tilted/3D on load; in an unfocused/automated browser the render loop
+> can stay idle until you interact (scroll/drag/zoom), at which point the 3D
+> view engages.
 
 ### Scope note
 

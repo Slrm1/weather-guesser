@@ -39,6 +39,14 @@ Standard commands live in `package.json` (`dev`, `build`, `lint`, `test`,
   is benign: Vite optimizes the MapLibre worker on demand when a real browser
   first loads the page, and the map renders correctly. `curl` cannot verify this
   (it doesn't execute JS) — check in a real browser.
+- The map is 3D (tilted camera via `initialViewState.pitch`, keyless AWS
+  terrain DEM, sky, and OpenFreeMap `liberty` 3D building extrusions). MapLibre
+  renders on demand: after the first (flat) frame its render loop goes idle and,
+  in the automated/unfocused test browser, only wakes on real user input — so
+  the tilt/3D may not paint until you scroll/drag/zoom the map (zoom into DC to
+  see 3D buildings). In a normal focused browser it renders tilted on load.
+  Programmatic paints (setPitch/flyTo/triggerRepaint/_render) do not reliably
+  wake it in the test harness; don't waste time trying to force it there.
 - Tests run under Vitest with the `jsdom` environment; config lives inside
   `vite.config.ts` (via `defineConfig` from `vitest/config`), not a separate
   `vitest.config.ts`. MapLibre uses WebGL and does not run in jsdom, so
