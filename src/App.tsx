@@ -210,10 +210,10 @@ export default function App() {
   const impact = describeWeatherImpact(weather);
   const trafficLevel = trafficLevelLabel(sim.trafficIndex);
 
+  // Keep the card up even after the incident clears (until the user closes it or
+  // it is trimmed from the list), so it isn't a sub-second flash at high speed.
   const selected =
-    selectedId != null
-      ? sim.incidents.find((i) => i.id === selectedId && i.status !== 'resolved') ?? null
-      : null;
+    selectedId != null ? sim.incidents.find((i) => i.id === selectedId) ?? null : null;
   const selectedUnit =
     selected?.assignedUnitId != null
       ? sim.units.find((u) => u.id === selected.assignedUnitId) ?? null
@@ -350,6 +350,7 @@ export default function App() {
                     1,
                     Math.round(selected.onSceneRemaining),
                   )} min`}
+                {selected.status === 'resolved' && '✔️ Incident cleared'}
               </p>
             </div>
           )}

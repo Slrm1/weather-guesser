@@ -20,6 +20,11 @@ Northern Virginia / Southern Maryland (DMV) region:
 4. **Traffic + weather** — a regional traffic index (by time-of-day, amplified
    by live weather), a **Traffic log** of corridor congestion (I-495, I-66,
    I-395, …), and an explicit weather→traffic impact readout.
+5. **Immersion** — a **day/night cycle** that tints the map by the sim clock
+   (Day/Dawn/Dusk/Night), **live weather overlays** (rain/snow/fog) on the map,
+   **flashing red/blue lights** on responding units, a clickable **incident
+   card** (scene detail, responding unit, live ETA / on-scene countdown), and an
+   optional **sound** toggle (dispatch blips).
 
 > Rendering note: MapLibre renders on demand. In a normal focused browser the
 > map shows tilted/3D on load; in an unfocused/automated browser the render loop
