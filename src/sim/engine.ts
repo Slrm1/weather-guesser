@@ -1,6 +1,12 @@
 import { createRng } from '../game';
 import { haversineKm, moveToward } from './geo';
 import { HOTSPOTS, STATIONS } from './stations';
+import {
+  CORRIDORS,
+  trafficIndexFor,
+  trafficLevelLabel,
+  weatherImpactTag,
+} from './traffic';
 import type {
   Incident,
   IncidentCategory,
@@ -86,6 +92,8 @@ export function createInitialState(seed = 1): SimState {
     nextIncidentId: 1,
     resolvedCount: 0,
     log: [],
+    trafficIndex: 40,
+    trafficLog: [],
   };
 }
 
@@ -243,6 +251,20 @@ export function tick(state: SimState, dtMin: number, ctx: TickContext): SimState
     }
   }
 
+  // 4b. Traffic model: recompute the regional index and emit corridor reports.
+  const hour = Math.floor((minutes / 60) % 24);
+  const trafficIndex = trafficIndexFor(hour, trafficBias, rng);
+  const trafficLog = state.trafficLog.slice(0, 60);
+  const reportChance = Math.min(0.85, dtMin / 16);
+  if (rng() < reportChance) {
+    const corridor = CORRIDORS[Math.floor(rng() * CORRIDORS.length)];
+    const localIndex = Math.max(0, Math.min(100, trafficIndex + (rng() - 0.5) * 22));
+    const level = trafficLevelLabel(localIndex);
+    trafficLog.unshift(
+      `${fmtClock(minutes)}  🚗 ${level} on ${corridor.name}${weatherImpactTag(trafficBias)}`,
+    );
+  }
+
   // Drop long-resolved incidents to keep the list manageable.
   const trimmedIncidents = working.incidents.filter(
     (i) => i.status !== 'resolved' || minutes - i.createdMin < 90,
@@ -255,6 +277,8 @@ export function tick(state: SimState, dtMin: number, ctx: TickContext): SimState
     nextIncidentId,
     resolvedCount,
     log: log.slice(0, 60),
+    trafficIndex,
+    trafficLog: trafficLog.slice(0, 60),
   };
 }
 

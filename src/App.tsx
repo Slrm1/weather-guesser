@@ -11,6 +11,11 @@ import {
 } from './sim/engine';
 import { HOTSPOTS, STATIONS } from './sim/stations';
 import { haversineKm } from './sim/geo';
+import {
+  describeWeatherImpact,
+  trafficLevelLabel,
+  weatherTrafficBias,
+} from './sim/traffic';
 import type {
   IncidentCategory,
   SimState,
@@ -25,7 +30,14 @@ import {
   type WeatherSnapshot,
 } from './weather/openMeteo';
 
-const DMV_VIEW = { longitude: -77.04, latitude: 38.9, zoom: 9.2 };
+const DMV_VIEW = { longitude: -77.04, latitude: 38.9, zoom: 9.6, pitch: 55, bearing: -18 };
+
+const TRAFFIC_COLOR: Record<string, string> = {
+  Light: '#46b06a',
+  Moderate: '#eab308',
+  Heavy: '#f0820c',
+  Gridlock: '#e02424',
+};
 const TICK_MS = 1000;
 const SPEEDS = { Slow: 3, Normal: 8, Fast: 24 } as const;
 type SpeedName = keyof typeof SPEEDS;
@@ -46,17 +58,6 @@ const UNIT_STATUS_COLOR: Record<UnitStatus, string> = {
   onscene: '#f59e0b',
   returning: '#16a34a',
 };
-
-function weatherTrafficBias(w: WeatherSnapshot | null): number {
-  if (!w) return 0;
-  let b = 0;
-  if (w.precipitationMm > 0.2) b += 0.6;
-  const c = w.weatherCode;
-  if (c >= 71 && c <= 77) b += 1.2;
-  else if (c >= 61) b += 0.5;
-  else if (c >= 45 && c <= 48) b += 0.4;
-  return b;
-}
 
 function nearestHotspot(lat: number, lon: number): string {
   let best = HOTSPOTS[0];
@@ -170,6 +171,8 @@ export default function App() {
 
   const day = Math.floor(sim.minutes / 1440) + 1;
   const condition = weather ? describeWeatherCode(weather.weatherCode) : null;
+  const impact = describeWeatherImpact(weather);
+  const trafficLevel = trafficLevelLabel(sim.trafficIndex);
 
   return (
     <div className="page">
@@ -252,6 +255,33 @@ export default function App() {
             </div>
           </div>
 
+          <div className="traffic-block" data-testid="traffic">
+            <div className="traffic-head">
+              <span className="section-title">Regional traffic</span>
+              <span className="traffic-level" style={{ color: TRAFFIC_COLOR[trafficLevel] }}>
+                {trafficLevel} · {sim.trafficIndex}
+              </span>
+            </div>
+            <div className="traffic-bar">
+              <div
+                className="traffic-fill"
+                style={{
+                  width: `${sim.trafficIndex}%`,
+                  background: TRAFFIC_COLOR[trafficLevel],
+                }}
+                role="meter"
+                aria-valuenow={sim.trafficIndex}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Regional traffic index"
+              />
+            </div>
+            <p className={`weather-impact${impact.bias > 0 ? ' bad' : ''}`}>
+              {condition ? `${condition.emoji} ` : ''}
+              {impact.label}
+            </p>
+          </div>
+
           <h2 className="section-title">Active incidents</h2>
           <ul className="incident-list" data-testid="incident-list">
             {activeIncidents.length === 0 && (
@@ -294,6 +324,14 @@ export default function App() {
                 </li>
               );
             })}
+          </ul>
+
+          <h2 className="section-title">Traffic log</h2>
+          <ul className="radio-log traffic-log" data-testid="traffic-log">
+            {sim.trafficLog.length === 0 && <li>Monitoring corridors…</li>}
+            {sim.trafficLog.slice(0, 10).map((line, idx) => (
+              <li key={idx}>{line}</li>
+            ))}
           </ul>
 
           <h2 className="section-title">Radio log</h2>

@@ -49,4 +49,6 @@ export interface SimState {
   nextIncidentId: number;
   resolvedCount: number;
   log: string[];
+  trafficIndex: number;
+  trafficLog: string[];
 }

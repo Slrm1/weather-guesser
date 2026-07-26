@@ -16,7 +16,7 @@ import { MarkerContent } from './MarkerContent';
 
 // Mapbox's modern 3D style; override with VITE_MAP_STYLE if desired.
 const DEFAULT_MAPBOX_STYLE = 'mapbox://styles/mapbox/standard';
-const DEFAULT_VIEW = { longitude: -77.04, latitude: 38.9, zoom: 9.2 };
+const DEFAULT_VIEW = { longitude: -77.04, latitude: 38.9, zoom: 9.6, pitch: 55, bearing: -18 };
 
 const MapboxMapView = forwardRef<GameMapRef, MapViewProps>(function MapboxMapView(
   { markers, initialView, onSelect },
@@ -38,6 +38,7 @@ const MapboxMapView = forwardRef<GameMapRef, MapViewProps>(function MapboxMapVie
       ref={mapRef}
       mapboxAccessToken={MAPBOX_TOKEN}
       initialViewState={initialView ?? DEFAULT_VIEW}
+      maxPitch={80}
       mapStyle={STYLE_OVERRIDE ?? DEFAULT_MAPBOX_STYLE}
       onClick={
         onSelect ? (e: MapMouseEvent) => onSelect(e.lngLat.lat, e.lngLat.lng) : undefined

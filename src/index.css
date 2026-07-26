@@ -652,3 +652,58 @@ input[type='range'] {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.traffic-log {
+  background: #14241a;
+  color: #d3f0dc;
+  max-height: 130px;
+}
+
+/* ---- Traffic & weather ---- */
+.traffic-block {
+  background: #f2f7fd;
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.traffic-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.traffic-head .section-title {
+  margin: 0;
+}
+
+.traffic-level {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.traffic-bar {
+  height: 10px;
+  background: #e1e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.traffic-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.weather-impact {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #47617a;
+}
+
+.weather-impact.bad {
+  color: #c0521f;
+  font-weight: 600;
+}

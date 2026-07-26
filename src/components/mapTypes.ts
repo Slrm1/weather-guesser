@@ -9,9 +9,17 @@ export interface MapMarker {
   pulse?: boolean;
 }
 
+export interface MapInitialView {
+  longitude: number;
+  latitude: number;
+  zoom: number;
+  pitch?: number;
+  bearing?: number;
+}
+
 export interface MapViewProps {
   markers: MapMarker[];
-  initialView?: { longitude: number; latitude: number; zoom: number };
+  initialView?: MapInitialView;
   onSelect?: (latitude: number, longitude: number) => void;
 }
 
