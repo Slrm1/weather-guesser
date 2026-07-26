@@ -3,10 +3,8 @@ import {
   CITIES,
   MAX_POINTS_PER_ROUND,
   createRng,
-  createRounds,
-  evaluateGuess,
+  pickRandomCity,
   scoreGuess,
-  totalScore,
 } from './game';
 
 describe('scoreGuess', () => {
@@ -42,35 +40,20 @@ describe('createRng', () => {
   });
 });
 
-describe('createRounds', () => {
-  it('returns the requested number of unique cities', () => {
-    const rounds = createRounds(5, 123);
-    expect(rounds).toHaveLength(5);
-    const names = rounds.map((r) => r.city.name);
-    expect(new Set(names).size).toBe(5);
-  });
-
-  it('is reproducible for the same seed', () => {
-    expect(createRounds(3, 999)).toEqual(createRounds(3, 999));
-  });
-
-  it('never asks for more rounds than there are cities', () => {
-    const rounds = createRounds(CITIES.length + 10, 1);
-    expect(rounds.length).toBeLessThanOrEqual(CITIES.length);
+describe('CITIES', () => {
+  it('all have valid coordinates', () => {
+    for (const c of CITIES) {
+      expect(c.latitude).toBeGreaterThanOrEqual(-90);
+      expect(c.latitude).toBeLessThanOrEqual(90);
+      expect(c.longitude).toBeGreaterThanOrEqual(-180);
+      expect(c.longitude).toBeLessThanOrEqual(180);
+    }
   });
 });
 
-describe('evaluateGuess and totalScore', () => {
-  it('computes diff and points for a round', () => {
-    const round = { city: CITIES[0], actualTempC: 10 };
-    const result = evaluateGuess(round, 13);
-    expect(result.diff).toBe(3);
-    expect(result.points).toBe(88);
-  });
-
-  it('sums points across results', () => {
-    const rounds = createRounds(3, 55);
-    const results = rounds.map((r) => evaluateGuess(r, r.actualTempC));
-    expect(totalScore(results)).toBe(3 * MAX_POINTS_PER_ROUND);
+describe('pickRandomCity', () => {
+  it('returns a city from the list', () => {
+    const city = pickRandomCity(() => 0);
+    expect(city).toEqual(CITIES[0]);
   });
 });
