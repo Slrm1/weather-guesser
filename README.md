@@ -14,10 +14,25 @@ An interactive browser game built around **live weather** and **simulation**:
 
 Built with **Vite + React + TypeScript**, **MapLibre GL JS** (via
 `react-map-gl`) for the map, and **Open-Meteo** for weather. **No API keys or
-secrets are required** — the map uses free [OpenFreeMap](https://openfreemap.org/)
-tiles and Open-Meteo needs no key. If the weather API is ever unreachable, the
-app falls back to a deterministic local weather **simulation** so it keeps
-working offline.
+secrets are required** — by default the map uses the free, keyless
+[Carto Voyager](https://carto.com/basemaps/) vector style rendered with a modern
+**3D globe** projection, and Open-Meteo needs no key. If the weather API is ever
+unreachable, the app falls back to a deterministic local weather **simulation**
+so it keeps working offline.
+
+### Map provider (optional)
+
+The map provider is configurable via environment variables (create a `.env`
+file or set them in your shell):
+
+| Variable            | Effect                                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| _(none)_            | Default: keyless MapLibre + Carto Voyager style + 3D globe.                               |
+| `VITE_MAPBOX_TOKEN` | Switches to **Mapbox GL** with the `mapbox://styles/mapbox/standard` 3D style.            |
+| `VITE_MAP_STYLE`    | Override the style URL for whichever provider is active (e.g. a MapTiler/Mapbox style).   |
+
+`mapbox-gl` is loaded lazily, so it's only fetched when `VITE_MAPBOX_TOKEN` is
+set. A Mapbox account/token is required to use the Mapbox provider.
 
 ## Requirements
 
@@ -53,7 +68,10 @@ src/
   App.tsx                      # Orchestrates map, prediction, scoring, panels
   game.ts                      # Scoring + RNG + city list (quick-pick)
   components/
-    MapView.tsx                # MapLibre map (react-map-gl, OpenFreeMap tiles)
+    MapView.tsx                # Provider selector (MapLibre default, Mapbox if token)
+    MapLibreMapView.tsx        # Keyless MapLibre map (Carto Voyager + 3D globe)
+    MapboxMapView.tsx          # Mapbox GL map (used when VITE_MAPBOX_TOKEN is set)
+    mapTypes.ts                # Shared map props/ref types + env config
     ForecastStrip.tsx          # 5-day forecast strip
     SimulationPanel.tsx        # Response/impact simulation bars
   weather/

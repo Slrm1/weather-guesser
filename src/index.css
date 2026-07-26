@@ -55,8 +55,18 @@ body {
   box-shadow: 0 12px 30px rgba(31, 78, 121, 0.15);
 }
 
-.map-pane .maplibregl-map {
+.map-pane .maplibregl-map,
+.map-pane .mapboxgl-map {
   border-radius: 16px;
+}
+
+.map-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #5a748c;
+  background: #dceaf7;
 }
 
 .panel {

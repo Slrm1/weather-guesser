@@ -8,13 +8,21 @@ services at runtime:
 
 - **Open-Meteo** (`api.open-meteo.com`, `geocoding-api.open-meteo.com`) for live
   weather + geocoding.
-- **OpenFreeMap** (`tiles.openfreemap.org`) for MapLibre vector map tiles.
+- **Carto basemaps** (`basemaps.cartocdn.com`) for the default keyless MapLibre
+  vector style (Voyager), rendered with a 3D globe projection.
 
-No API keys or secrets are required. This environment has unrestricted egress,
-so both services are reachable; if they were ever blocked, the weather layer
-falls back to a deterministic local simulation (`simulateWeather` in
-`src/weather/openMeteo.ts`), but the **map tiles have no offline fallback** and
-would appear blank without network.
+No API keys or secrets are required for the default setup. This environment has
+unrestricted egress, so both services are reachable; if they were ever blocked,
+the weather layer falls back to a deterministic local simulation
+(`simulateWeather` in `src/weather/openMeteo.ts`), but the **map tiles have no
+offline fallback** and would appear blank without network.
+
+**Map provider selection** lives in `src/components/`: `MapView.tsx` picks
+`MapboxMapView` when `VITE_MAPBOX_TOKEN` is set (Mapbox GL, lazily imported so
+`mapbox-gl` stays out of the default bundle) and otherwise `MapLibreMapView`
+(keyless default). `VITE_MAP_STYLE` overrides the style URL. The Mapbox path
+requires a Mapbox token and is not exercised without one, so test map changes
+against the default MapLibre path unless a token is provided.
 
 Standard commands live in `package.json` (`dev`, `build`, `lint`, `test`,
 `preview`); see `README.md` for the full table. Non-obvious notes:

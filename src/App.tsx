@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import type { MapRef } from 'react-map-gl/maplibre';
 import MapView from './components/MapView';
+import type { GameMapRef } from './components/mapTypes';
 import SimulationPanel from './components/SimulationPanel';
 import ForecastStrip from './components/ForecastStrip';
 import { pickRandomCity, scoreGuess } from './game';
@@ -22,7 +22,7 @@ interface Selection {
 }
 
 export default function App() {
-  const mapRef = useRef<MapRef>(null);
+  const mapRef = useRef<GameMapRef>(null);
   const requestId = useRef(0);
 
   const [selection, setSelection] = useState<Selection | null>(null);
