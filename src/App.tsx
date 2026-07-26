@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import MapView from './components/MapView';
-import type { MapMarker } from './components/mapTypes';
+import type { GameMapRef, MapMarker } from './components/mapTypes';
 import {
   addIncidentAt,
   createInitialState,
@@ -78,7 +78,9 @@ export default function App() {
   const [speed, setSpeed] = useState<SpeedName>('Normal');
   const [autoDispatch, setAutoDispatch] = useState(true);
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
+  const [is3D, setIs3D] = useState(true);
 
+  const mapRef = useRef<GameMapRef>(null);
   const seedRef = useRef(1);
   const trafficBias = useMemo(() => weatherTrafficBias(weather), [weather]);
 
@@ -187,7 +189,23 @@ export default function App() {
 
       <main className="layout">
         <section className="map-pane" aria-label="map">
-          <MapView markers={markers} initialView={DMV_VIEW} onSelect={handleMapClick} />
+          <MapView
+            ref={mapRef}
+            markers={markers}
+            initialView={DMV_VIEW}
+            onSelect={handleMapClick}
+          />
+          <button
+            type="button"
+            className="map-3d-toggle"
+            onClick={() => {
+              const next = !is3D;
+              setIs3D(next);
+              mapRef.current?.setTilt(next ? 55 : 0, next ? -18 : 0);
+            }}
+          >
+            {is3D ? '2D' : '3D'}
+          </button>
         </section>
 
         <aside className="panel cad">

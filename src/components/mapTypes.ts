@@ -32,6 +32,8 @@ export interface FlyToOptions {
 /** Minimal imperative handle shared by the Mapbox and MapLibre map components. */
 export interface GameMapRef {
   flyTo: (opts: FlyToOptions) => void;
+  /** Animate the camera pitch/bearing (used by the 3D/2D toggle). */
+  setTilt: (pitch: number, bearing: number) => void;
 }
 
 /** When a Mapbox token is provided, the app renders Mapbox GL instead of MapLibre. */

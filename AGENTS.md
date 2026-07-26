@@ -45,8 +45,12 @@ Standard commands live in `package.json` (`dev`, `build`, `lint`, `test`,
   in the automated/unfocused test browser, only wakes on real user input — so
   the tilt/3D may not paint until you scroll/drag/zoom the map (zoom into DC to
   see 3D buildings). In a normal focused browser it renders tilted on load.
-  Programmatic paints (setPitch/flyTo/triggerRepaint/_render) do not reliably
-  wake it in the test harness; don't waste time trying to force it there.
+  Programmatic paints (setPitch/flyTo/triggerRepaint/_render) and even the
+  in-app 3D/2D toggle button do not reliably wake it in the test harness —
+  ONLY direct scroll/drag on the map canvas does. Don't waste time trying to
+  force the tilt programmatically there; verify 3D by scrolling the map canvas.
+  A `3D`/`2D` toggle (top-left of the map) sets pitch via `GameMapRef.setTilt`
+  and works in a normal browser.
 - Tests run under Vitest with the `jsdom` environment; config lives inside
   `vite.config.ts` (via `defineConfig` from `vitest/config`), not a separate
   `vitest.config.ts`. MapLibre uses WebGL and does not run in jsdom, so

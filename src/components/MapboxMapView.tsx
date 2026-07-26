@@ -31,6 +31,10 @@ const MapboxMapView = forwardRef<GameMapRef, MapViewProps>(function MapboxMapVie
         zoom: opts.zoom,
         duration: opts.duration,
       }),
+    setTilt: (pitch, bearing) =>
+      (mapRef.current as unknown as {
+        easeTo?: (o: { pitch: number; bearing: number; duration: number }) => void;
+      })?.easeTo?.({ pitch, bearing, duration: 600 }),
   }));
 
   return (
