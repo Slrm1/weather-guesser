@@ -32,6 +32,22 @@ import {
 
 const DMV_VIEW = { longitude: -77.04, latitude: 38.9, zoom: 9.6, pitch: 55, bearing: -18 };
 
+// Quick-jump destinations across the DMV; flying here shows the accurate local
+// street/building detail for each area.
+const AREAS: { name: string; lat: number; lon: number; zoom: number }[] = [
+  { name: 'DMV region', lat: 38.9, lon: -77.04, zoom: 9.6 },
+  { name: 'Washington DC', lat: 38.9007, lon: -77.0365, zoom: 12.4 },
+  { name: 'Arlington', lat: 38.8816, lon: -77.091, zoom: 12.6 },
+  { name: 'Alexandria', lat: 38.8048, lon: -77.0469, zoom: 13 },
+  { name: 'Bethesda', lat: 38.9847, lon: -77.0947, zoom: 13 },
+  { name: 'Tysons', lat: 38.9187, lon: -77.2311, zoom: 13 },
+  { name: 'Reston', lat: 38.9586, lon: -77.357, zoom: 12.6 },
+  { name: 'Silver Spring', lat: 38.9959, lon: -77.0281, zoom: 13 },
+  { name: 'College Park', lat: 38.9807, lon: -76.9369, zoom: 13 },
+  { name: 'National Harbor', lat: 38.7845, lon: -77.0164, zoom: 14 },
+  { name: 'Largo', lat: 38.8907, lon: -76.8474, zoom: 13 },
+];
+
 const TRAFFIC_COLOR: Record<string, string> = {
   Light: '#46b06a',
   Moderate: '#eab308',
@@ -195,6 +211,10 @@ export default function App() {
       }));
     return [...stationMarkers, ...unitMarkers, ...incidentMarkers];
   }, [sim.units, sim.incidents]);
+
+  function jumpToArea(a: { lat: number; lon: number; zoom: number }) {
+    mapRef.current?.flyTo({ center: [a.lon, a.lat], zoom: a.zoom, duration: 1400 });
+  }
 
   function handleMapClick(lat: number, lon: number) {
     seedRef.current += 1;
@@ -408,6 +428,22 @@ export default function App() {
             >
               {soundOn ? '🔊' : '🔇'}
             </button>
+          </div>
+
+          <div className="areas" data-testid="areas">
+            <span className="areas-label">Jump to area</span>
+            <div className="area-chips">
+              {AREAS.map((a) => (
+                <button
+                  key={a.name}
+                  type="button"
+                  className="area-chip"
+                  onClick={() => jumpToArea(a)}
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="stats" data-testid="stats">

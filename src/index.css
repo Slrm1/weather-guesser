@@ -43,7 +43,7 @@ body {
 
 .layout {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: 1.6fr 1fr;
   gap: 1.25rem;
   align-items: start;
 }
@@ -58,7 +58,7 @@ body {
   position: relative;
   /* Fixed height keeps the map stable regardless of the side panel's content,
      which avoids MapLibre canvas resize glitches when the panel grows/shrinks. */
-  height: 560px;
+  height: 620px;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 12px 30px rgba(31, 78, 121, 0.15);
@@ -659,6 +659,43 @@ input[type='range'] {
   font-size: 0.85rem;
   color: #47617a;
   margin-left: auto;
+}
+
+.areas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.areas-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #5a748c;
+  font-weight: 700;
+}
+
+.area-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.area-chip {
+  border: 1px solid #cdd9e6;
+  background: #f2f7fd;
+  color: #16324f;
+  border-radius: 999px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.area-chip:hover {
+  background: #1f7ae0;
+  color: #fff;
+  border-color: #1f7ae0;
 }
 
 .stats {
