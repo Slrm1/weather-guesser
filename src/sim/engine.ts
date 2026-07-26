@@ -39,6 +39,19 @@ const ON_SCENE_MINUTES: Record<IncidentCategory, number> = {
   hazmat: 28,
 };
 
+const DETAILS: Record<IncidentCategory, string[]> = {
+  medical: ['62M · chest pain', '28F · trouble breathing', '45M · unconscious', 'Child · allergic reaction', '70F · fall, hip pain'],
+  fire: ['Smoke showing, 2nd floor', 'Working fire, occupants out', 'Alarm activation', 'Vehicle fully involved', 'Odor of smoke in structure'],
+  crime: ['Suspect fled on foot', 'Weapon reported', 'Victim on scene', 'In progress, caller hiding', 'Two parties fighting'],
+  traffic: ['2 vehicles, injuries', 'Rollover, 1 trapped', 'Pedestrian struck, serious', 'Multi-vehicle, lanes blocked', 'Vehicle vs guardrail'],
+  hazmat: ['Unknown odor, evacuating', 'Fuel leak spreading', 'Chemical smell reported', 'Container leaking'],
+};
+
+function pickDetail(category: IncidentCategory, rng: () => number): string {
+  const arr = DETAILS[category];
+  return arr[Math.floor(rng() * arr.length)];
+}
+
 const LABELS: Record<IncidentCategory, string[]> = {
   medical: ['Cardiac arrest', 'Fall injury', 'Difficulty breathing', 'Stroke symptoms', 'Overdose'],
   fire: ['Structure fire', 'Kitchen fire', 'Vehicle fire', 'Electrical fire', 'Smoke investigation'],
@@ -136,6 +149,7 @@ function spawnIncident(state: SimState, rng: () => number, trafficBias: number):
     requiredType: REQUIRED_TYPE[category],
     onSceneRemaining: ON_SCENE_MINUTES[category],
     assignedUnitId: null,
+    detail: pickDetail(category, rng),
   };
 }
 
@@ -323,6 +337,7 @@ export function addIncidentAt(
     requiredType: REQUIRED_TYPE[category],
     onSceneRemaining: ON_SCENE_MINUTES[category],
     assignedUnitId: null,
+    detail: pickDetail(category, rng),
   };
   const log = [`${fmtClock(state.minutes)}  911: ${label} — ${incident.id} (P${priority})`, ...state.log];
   return {

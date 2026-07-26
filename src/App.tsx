@@ -59,6 +59,31 @@ const UNIT_STATUS_COLOR: Record<UnitStatus, string> = {
   returning: '#16a34a',
 };
 
+/** 0 (bright day) .. ~0.62 (deep night) darkness overlay by hour, with dawn/dusk ramps. */
+function nightDarkness(hour: number): number {
+  const peak = 0.62;
+  if (hour >= 8 && hour <= 17) return 0;
+  if (hour >= 21 || hour <= 4) return peak;
+  if (hour > 4 && hour < 8) return peak * (1 - (hour - 4) / 4);
+  return peak * ((hour - 17) / 4);
+}
+
+function dayPhase(hour: number): string {
+  if (hour >= 8 && hour <= 16) return 'Day';
+  if (hour > 16 && hour < 21) return 'Dusk';
+  if (hour >= 21 || hour < 5) return 'Night';
+  return 'Dawn';
+}
+
+/** Map a weather code to a precipitation overlay class (or null when clear). */
+function weatherOverlay(code: number | undefined): 'rain' | 'snow' | 'fog' | null {
+  if (code == null) return null;
+  if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return 'snow';
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95) return 'rain';
+  if (code >= 45 && code <= 48) return 'fog';
+  return null;
+}
+
 function nearestHotspot(lat: number, lon: number): string {
   let best = HOTSPOTS[0];
   let bestD = Infinity;
@@ -79,9 +104,13 @@ export default function App() {
   const [autoDispatch, setAutoDispatch] = useState(true);
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
   const [is3D, setIs3D] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [soundOn, setSoundOn] = useState(false);
 
   const mapRef = useRef<GameMapRef>(null);
   const seedRef = useRef(1);
+  const audioRef = useRef<AudioContext | null>(null);
+  const prevActiveRef = useRef(0);
   const trafficBias = useMemo(() => weatherTrafficBias(weather), [weather]);
 
   // Load current DC weather once (affects traffic-incident likelihood).
@@ -150,6 +179,7 @@ export default function App() {
         color: UNIT_STATUS_COLOR[u.status],
         kind: 'unit',
         title: `${u.callSign} (${u.status})`,
+        flashing: u.status === 'enroute' || u.status === 'onscene',
       }));
     const incidentMarkers: MapMarker[] = sim.incidents
       .filter((i) => i.status !== 'resolved')
@@ -172,9 +202,78 @@ export default function App() {
   }
 
   const day = Math.floor(sim.minutes / 1440) + 1;
+  const hour = Math.floor((sim.minutes / 60) % 24);
+  const darkness = nightDarkness(hour);
+  const phase = dayPhase(hour);
+  const wx = weatherOverlay(weather?.weatherCode);
   const condition = weather ? describeWeatherCode(weather.weatherCode) : null;
   const impact = describeWeatherImpact(weather);
   const trafficLevel = trafficLevelLabel(sim.trafficIndex);
+
+  const selected =
+    selectedId != null
+      ? sim.incidents.find((i) => i.id === selectedId && i.status !== 'resolved') ?? null
+      : null;
+  const selectedUnit =
+    selected?.assignedUnitId != null
+      ? sim.units.find((u) => u.id === selected.assignedUnitId) ?? null
+      : null;
+  const selectedEtaMin =
+    selected && selectedUnit && selected.status === 'assigned'
+      ? Math.max(
+          1,
+          Math.round(
+            (haversineKm(
+              { lat: selectedUnit.lat, lon: selectedUnit.lon },
+              { lat: selected.lat, lon: selected.lon },
+            ) /
+              55) *
+              60,
+          ),
+        )
+      : null;
+
+  // Optional audio: a soft blip when a new incident comes in.
+  useEffect(() => {
+    const active = sim.incidents.filter((i) => i.status !== 'resolved').length;
+    const ctx = audioRef.current;
+    if (soundOn && ctx && active > prevActiveRef.current) {
+      try {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 900;
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.1, ctx.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.18);
+      } catch {
+        /* audio unavailable */
+      }
+    }
+    prevActiveRef.current = active;
+  }, [sim.incidents, soundOn]);
+
+  function toggleSound() {
+    const next = !soundOn;
+    setSoundOn(next);
+    if (next) {
+      try {
+        const Ctor =
+          window.AudioContext ??
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (Ctor) {
+          audioRef.current = audioRef.current ?? new Ctor();
+          void audioRef.current.resume?.();
+        }
+      } catch {
+        /* audio unavailable */
+      }
+    }
+  }
 
   return (
     <div className="page">
@@ -206,13 +305,63 @@ export default function App() {
           >
             {is3D ? '2D' : '3D'}
           </button>
+
+          <div
+            className="map-night"
+            style={{ background: `rgba(8,16,40,${darkness})` }}
+            data-testid="night-overlay"
+          />
+          {wx && <div className={`map-wx wx-${wx}`} data-testid="wx-overlay" />}
+
+          {selected && (
+            <div className="incident-card" data-testid="incident-card">
+              <button
+                type="button"
+                className="incident-card-close"
+                aria-label="Close"
+                onClick={() => setSelectedId(null)}
+              >
+                ×
+              </button>
+              <div className="incident-card-title">
+                <span
+                  className="prio"
+                  style={{ background: PRIORITY_COLOR[selected.priority] }}
+                >
+                  P{selected.priority}
+                </span>
+                <span aria-hidden="true">{CATEGORY_EMOJI[selected.category]}</span>{' '}
+                {selected.label}
+                <span className="incident-id"> · {selected.id}</span>
+              </div>
+              <p className="incident-card-detail">{selected.detail}</p>
+              <p className="incident-card-meta">
+                📍 {nearestHotspot(selected.lat, selected.lon)} ·{' '}
+                <span className={`status status-${selected.status}`}>{selected.status}</span>
+              </p>
+              <p className="incident-card-meta">
+                {selected.status === 'pending' && '⏳ Awaiting available unit'}
+                {selected.status === 'assigned' &&
+                  selectedUnit &&
+                  `🚨 ${selectedUnit.callSign} responding · ETA ~${selectedEtaMin} min`}
+                {selected.status === 'onscene' &&
+                  selectedUnit &&
+                  `✅ ${selectedUnit.callSign} on scene · clears in ${Math.max(
+                    1,
+                    Math.round(selected.onSceneRemaining),
+                  )} min`}
+              </p>
+            </div>
+          )}
         </section>
 
         <aside className="panel cad">
           <div className="cad-top">
             <div className="clock" data-testid="clock">
               <span className="clock-time">{fmtClock(sim.minutes)}</span>
-              <span className="clock-day">Day {day}</span>
+              <span className="clock-day">
+                Day {day} · {phase}
+              </span>
             </div>
             {weather && condition && (
               <div className="weather-chip" title="Live DC weather (Open-Meteo)">
@@ -250,6 +399,14 @@ export default function App() {
               />
               Auto-dispatch
             </label>
+            <button
+              type="button"
+              className={`secondary sound-btn${soundOn ? ' active' : ''}`}
+              onClick={toggleSound}
+              title="Toggle dispatch sounds"
+            >
+              {soundOn ? '🔊' : '🔇'}
+            </button>
           </div>
 
           <div className="stats" data-testid="stats">
@@ -310,7 +467,11 @@ export default function App() {
                 ? sim.units.find((u) => u.id === i.assignedUnitId)
                 : null;
               return (
-                <li key={i.id} className="incident">
+                <li
+                  key={i.id}
+                  className={`incident${selectedId === i.id ? ' selected' : ''}`}
+                  onClick={() => setSelectedId(i.id)}
+                >
                   <span
                     className="prio"
                     style={{ background: PRIORITY_COLOR[i.priority] }}
@@ -334,7 +495,10 @@ export default function App() {
                     <button
                       type="button"
                       className="dispatch-btn"
-                      onClick={() => setSim((s) => dispatchIncident(s, i.id))}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSim((s) => dispatchIncident(s, i.id));
+                      }}
                     >
                       Dispatch
                     </button>

@@ -72,6 +72,7 @@ describe('dispatchIncident', () => {
       requiredType: 'ems',
       onSceneRemaining: 10,
       assignedUnitId: null,
+      detail: 'test detail',
     };
     const state: SimState = { ...base, incidents: [incident] };
     const next = dispatchIncident(state, 'INC-TEST');

@@ -40,6 +40,7 @@ export interface Incident {
   requiredType: UnitType;
   onSceneRemaining: number;
   assignedUnitId: string | null;
+  detail: string;
 }
 
 export interface SimState {

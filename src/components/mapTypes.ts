@@ -7,6 +7,8 @@ export interface MapMarker {
   kind: 'station' | 'unit' | 'incident';
   title?: string;
   pulse?: boolean;
+  /** Responding units flash red/blue emergency lights. */
+  flashing?: boolean;
 }
 
 export interface MapInitialView {
