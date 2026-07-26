@@ -138,6 +138,39 @@ body {
   margin: 0 0 0.75rem;
 }
 
+.forecast-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.current {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.current-emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.current-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.current-temp {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.current-cond {
+  color: #47617a;
+  font-size: 1rem;
+}
+
 .controls {
   display: flex;
   flex-direction: column;

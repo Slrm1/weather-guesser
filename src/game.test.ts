@@ -1,27 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  CITIES,
-  MAX_POINTS_PER_ROUND,
-  createRng,
-  pickRandomCity,
-  scoreGuess,
-} from './game';
-
-describe('scoreGuess', () => {
-  it('awards the maximum for an exact guess', () => {
-    expect(scoreGuess(20, 20)).toBe(MAX_POINTS_PER_ROUND);
-  });
-
-  it('reduces points as the guess gets further off', () => {
-    expect(scoreGuess(20, 25)).toBe(80);
-    expect(scoreGuess(20, 15)).toBe(80);
-  });
-
-  it('never returns a negative score', () => {
-    expect(scoreGuess(20, 100)).toBe(0);
-    expect(scoreGuess(0, -100)).toBe(0);
-  });
-});
+import { CITIES, createRng, pickRandomCity } from './game';
 
 describe('createRng', () => {
   it('is deterministic for a given seed', () => {

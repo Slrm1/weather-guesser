@@ -1,14 +1,13 @@
 # weather-guesser
 
-An interactive browser game built around **live weather** and **simulation**:
+An interactive **weather predictor** built around **live forecasts** and
+**simulation**:
 
 1. **Pick a location** on a world map (click the map, search a city, or hit
    “Surprise me”).
-2. **Predict the temperature** there with a slider.
-3. **Reveal & score** — the app pulls the *live* current temperature and short
-   forecast from [Open-Meteo](https://open-meteo.com/) and scores how close you
-   were.
-4. **See the ripple effects** — a response/impact simulation shows how that
+2. **See the prediction** — the app pulls *live* current conditions and a 5-day
+   forecast from [Open-Meteo](https://open-meteo.com/).
+3. **See the ripple effects** — a response/impact simulation shows how that
    weather drives modelled systems (energy demand, irrigation need, traffic
    risk).
 
@@ -65,8 +64,8 @@ npm run dev      # start the dev server at http://localhost:5173
 index.html                     # Vite entry HTML
 src/
   main.tsx                     # React entry point
-  App.tsx                      # Orchestrates map, prediction, scoring, panels
-  game.ts                      # Scoring + RNG + city list (quick-pick)
+  App.tsx                      # Orchestrates map, forecast display, and panels
+  game.ts                      # RNG + city list (used by quick-pick & simulation)
   components/
     MapView.tsx                # Provider selector (MapLibre default, Mapbox if token)
     MapLibreMapView.tsx        # Keyless MapLibre map (Carto Voyager + 3D globe)

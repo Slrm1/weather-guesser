@@ -44,34 +44,32 @@ afterEach(() => {
 describe('<App />', () => {
   it('shows the title and an initial hint', () => {
     render(<App />);
-    expect(screen.getByText(/Weather Guesser/i)).toBeInTheDocument();
+    expect(screen.getByText(/Weather Predictor/i)).toBeInTheDocument();
     expect(screen.getByTestId('hint')).toBeInTheDocument();
   });
 
-  it('loads weather for a selected location and lets you guess', async () => {
+  it('shows the current conditions, forecast, and simulation for a location', async () => {
     mockLiveWeather(20);
     render(<App />);
     fireEvent.click(screen.getByText('mock-map-select'));
+
     await waitFor(() =>
-      expect(screen.getByTestId('guess-value')).toBeInTheDocument(),
+      expect(screen.getByTestId('forecast-panel')).toBeInTheDocument(),
     );
-  });
-
-  it('reveals the actual temperature and simulated responses after scoring', async () => {
-    mockLiveWeather(20);
-    render(<App />);
-    fireEvent.click(screen.getByText('mock-map-select'));
-    await waitFor(() =>
-      expect(screen.getByTestId('guess-value')).toBeInTheDocument(),
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: /reveal & score/i }));
-
-    expect(screen.getByTestId('reveal')).toBeInTheDocument();
+    expect(screen.getByTestId('current-temp')).toHaveTextContent('20°C');
     expect(screen.getByTestId('forecast')).toBeInTheDocument();
     expect(screen.getByTestId('sim-panel')).toBeInTheDocument();
-    // Default guess is 15, actual 20 -> off by 5 -> 80 points.
-    expect(screen.getByTestId('points')).toHaveTextContent(/80/);
-    expect(screen.getByTestId('score')).toHaveTextContent(/80/);
+  });
+
+  it('clears the forecast when the Clear button is pressed', async () => {
+    mockLiveWeather(20);
+    render(<App />);
+    fireEvent.click(screen.getByText('mock-map-select'));
+    await waitFor(() =>
+      expect(screen.getByTestId('forecast-panel')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /clear/i }));
+    expect(screen.getByTestId('hint')).toBeInTheDocument();
   });
 });
