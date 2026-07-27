@@ -82,7 +82,7 @@ describe('carYields', () => {
 describe('ambient traffic', () => {
   it('starts with a full capped pool of cars', () => {
     const s = createInitialState();
-    expect(s.ambient.length).toBe(42);
+    expect(s.ambient.length).toBe(55);
     expect(s.ambient.every((c) => c.id.startsWith('car-'))).toBe(true);
   });
 
@@ -90,7 +90,7 @@ describe('ambient traffic', () => {
     let s = createInitialState();
     const before = s.ambient.map((c) => `${c.lat},${c.lon}`).join('|');
     for (let i = 0; i < 30; i++) s = tick(s, 5, { rng: makeRng(500 + i) });
-    expect(s.ambient.length).toBe(42);
+    expect(s.ambient.length).toBe(55);
     const after = s.ambient.map((c) => `${c.lat},${c.lon}`).join('|');
     expect(after).not.toBe(before);
   });

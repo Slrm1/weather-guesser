@@ -21,12 +21,17 @@ const MAX_ACTIVE_INCIDENTS = 40;
 const BASE_INCIDENTS_PER_HOUR = 5;
 
 // --- Ambient traffic (Section 1: traffic as a gameplay system) ---
-const MAX_AMBIENT = 42; // performance cap on visible ambient vehicles
+const MAX_AMBIENT = 55; // performance cap on visible ambient vehicles
 const AMBIENT_SPEED_KMH = 32;
 const YIELD_KM = 0.5; // cars within this range of a responding unit pull over
 const CAR_CRASH_PER_HOUR = 0.9; // base ambient crash rate, amplified by congestion
 
-const DMV_BOUNDS = { minLat: 38.7, maxLat: 39.05, minLon: -77.4, maxLon: -76.8 };
+// Cars cluster around real population centers + highway corridors so ambient
+// traffic reads as road traffic rather than scattered dots.
+const TRAFFIC_NODES: { lat: number; lon: number }[] = [
+  ...HOTSPOTS.map((h) => ({ lat: h.lat, lon: h.lon })),
+  ...CORRIDORS.map((c) => ({ lat: c.lat, lon: c.lon })),
+];
 
 /** Travel-speed multiplier from the regional traffic index (1 = clear, ~0.45 = gridlock). */
 export function congestionFactor(trafficIndex: number): number {
@@ -199,16 +204,14 @@ function spawnIncident(state: SimState, rng: () => number, trafficBias: number):
   );
 }
 
-function randInBounds(rng: () => number): { lat: number; lon: number } {
-  return {
-    lat: DMV_BOUNDS.minLat + rng() * (DMV_BOUNDS.maxLat - DMV_BOUNDS.minLat),
-    lon: DMV_BOUNDS.minLon + rng() * (DMV_BOUNDS.maxLon - DMV_BOUNDS.minLon),
-  };
+function nearNode(rng: () => number): { lat: number; lon: number } {
+  const n = TRAFFIC_NODES[Math.floor(rng() * TRAFFIC_NODES.length)];
+  return { lat: n.lat + (rng() - 0.5) * 0.03, lon: n.lon + (rng() - 0.5) * 0.03 };
 }
 
 function makeCar(id: number, rng: () => number): AmbientCar {
-  const p = randInBounds(rng);
-  const t = randInBounds(rng);
+  const p = nearNode(rng);
+  const t = nearNode(rng);
   return { id: `car-${id}`, lat: p.lat, lon: p.lon, targetLat: t.lat, targetLon: t.lon, yielding: false };
 }
 
@@ -336,7 +339,7 @@ export function tick(state: SimState, dtMin: number, ctx: TickContext): SimState
     car.lat = res.position.lat;
     car.lon = res.position.lon;
     if (res.arrived) {
-      const t = randInBounds(rng);
+      const t = nearNode(rng);
       car.targetLat = t.lat;
       car.targetLon = t.lon;
     }
