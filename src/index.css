@@ -1,0 +1,912 @@
+:root {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #16324f;
+  background: #eef4fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  /* Always reserve the scrollbar gutter so toggling the (tall) forecast panel
+     doesn't change the layout width. A width shift otherwise leaves the
+     MapLibre canvas slightly mis-sized (thin blank edges) until the next move. */
+  scrollbar-gutter: stable;
+}
+
+body {
+  margin: 0;
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.header h1 {
+  font-size: 2rem;
+  margin: 0 0 0.35rem;
+}
+
+.subtitle {
+  margin: 0 auto;
+  max-width: 640px;
+  color: #47617a;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.map-pane {
+  position: relative;
+  /* Fixed height keeps the map stable regardless of the side panel's content,
+     which avoids MapLibre canvas resize glitches when the panel grows/shrinks. */
+  height: 620px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(31, 78, 121, 0.15);
+}
+
+.map-pane .maplibregl-map,
+.map-pane .mapboxgl-map {
+  border-radius: 16px;
+}
+
+.map-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #5a748c;
+  background: #dceaf7;
+}
+
+.map-3d-toggle {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.7rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #16324f;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 6px rgba(31, 78, 121, 0.25);
+  cursor: pointer;
+}
+
+.map-3d-toggle:hover {
+  background: #fff;
+}
+
+/* ---- Immersion overlays over the map ---- */
+.map-night {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  transition: background 1.2s linear;
+}
+
+.map-wx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.wx-rain {
+  opacity: 0.5;
+  background-image: repeating-linear-gradient(
+    105deg,
+    transparent 0 7px,
+    rgba(180, 200, 230, 0.55) 7px 8px,
+    transparent 8px 14px
+  );
+  background-size: 120px 120px;
+  animation: rainfall 0.55s linear infinite;
+}
+
+@keyframes rainfall {
+  to {
+    background-position: 40px 120px;
+  }
+}
+
+.wx-snow {
+  opacity: 0.85;
+  background-image:
+    radial-gradient(2px 2px at 20px 30px, #fff, transparent),
+    radial-gradient(2px 2px at 80px 70px, #fff, transparent),
+    radial-gradient(2.5px 2.5px at 140px 20px, #fff, transparent),
+    radial-gradient(2px 2px at 200px 100px, #fff, transparent);
+  background-size: 220px 160px;
+  animation: snowfall 5s linear infinite;
+}
+
+@keyframes snowfall {
+  to {
+    background-position: 30px 160px;
+  }
+}
+
+.wx-fog {
+  background: linear-gradient(
+    to bottom,
+    rgba(228, 233, 240, 0.45),
+    rgba(228, 233, 240, 0.18)
+  );
+  backdrop-filter: blur(1.5px);
+}
+
+/* ---- Incident detail card (CAD popup over the map) ---- */
+.incident-card {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 3;
+  width: min(300px, 70%);
+  background: rgba(15, 27, 42, 0.94);
+  color: #eaf3fb;
+  border-radius: 12px;
+  padding: 0.75rem 0.85rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.incident-card-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  color: #9fb6cc;
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.incident-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+  padding-right: 1rem;
+}
+
+.incident-card .incident-id {
+  color: #8ba6c0;
+  font-weight: 400;
+}
+
+.incident-card-detail {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  color: #ffd9a0;
+}
+
+.incident-card-meta {
+  margin: 0.15rem 0;
+  font-size: 0.82rem;
+  color: #cfe1f2;
+}
+
+.incident.selected {
+  outline: 2px solid #1f7ae0;
+}
+
+.incident {
+  cursor: pointer;
+}
+
+.sound-btn {
+  padding: 0.5rem 0.6rem;
+}
+
+.panel {
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: 0 12px 30px rgba(31, 78, 121, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.search {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.search input {
+  flex: 1 1 140px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cdd9e6;
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+
+.results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #e2eaf2;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.results li button {
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: none;
+  border-bottom: 1px solid #eef2f7;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.results li button:hover {
+  background: #f2f7fd;
+}
+
+.score {
+  font-size: 1.05rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(31, 122, 224, 0.08);
+  border-radius: 10px;
+}
+
+.rounds {
+  color: #5a748c;
+}
+
+.hint {
+  color: #5a748c;
+  margin: 0;
+}
+
+.location {
+  font-size: 1.2rem;
+  margin: 0 0 0.75rem;
+}
+
+.forecast-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.current {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.current-emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.current-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.current-temp {
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.current-cond {
+  color: #47617a;
+  font-size: 1rem;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.guess-label {
+  font-size: 1.05rem;
+}
+
+input[type='range'] {
+  width: 100%;
+  accent-color: #f0a020;
+}
+
+.primary,
+.secondary {
+  border: none;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.05s ease;
+}
+
+.primary {
+  color: #fff;
+  background: #1f7ae0;
+}
+
+.primary:hover {
+  background: #1667c0;
+}
+
+.primary:active {
+  transform: translateY(1px);
+}
+
+.secondary {
+  color: #16324f;
+  background: #e6eef7;
+}
+
+.secondary:hover {
+  background: #d6e3f2;
+}
+
+.secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.reveal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.actual {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.meta {
+  margin: 0;
+  color: #47617a;
+  font-size: 0.9rem;
+}
+
+.points {
+  margin: 0.25rem 0;
+}
+
+.source {
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.source-live {
+  color: #2f8f4e;
+}
+
+.source-simulated {
+  color: #c07a1f;
+}
+
+.forecast h3,
+.sim-panel h3 {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.forecast-row {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: space-between;
+}
+
+.forecast-day {
+  flex: 1;
+  background: #f2f7fd;
+  border-radius: 10px;
+  padding: 0.5rem 0.25rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.forecast-dow {
+  font-size: 0.75rem;
+  color: #5a748c;
+}
+
+.forecast-emoji {
+  font-size: 1.35rem;
+}
+
+.forecast-temp {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.sim-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.sim-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.3rem;
+}
+
+.sim-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.sim-level {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.sim-bar {
+  height: 10px;
+  background: #edf2f7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.sim-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.level-low {
+  color: #2f8f4e;
+}
+
+.sim-fill.level-low {
+  background: #46b06a;
+}
+
+.sim-level.level-low {
+  background: #e2f4e8;
+}
+
+.level-moderate {
+  color: #c07a1f;
+}
+
+.sim-fill.level-moderate {
+  background: #f0a83c;
+}
+
+.sim-level.level-moderate {
+  background: #fbeed6;
+}
+
+.level-high {
+  color: #c23a3a;
+}
+
+.sim-fill.level-high {
+  background: #e05656;
+}
+
+.sim-level.level-high {
+  background: #fadede;
+}
+
+.sim-detail {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  color: #5a748c;
+}
+
+/* ---- Map markers ---- */
+.map-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  cursor: default;
+}
+
+.marker-station {
+  width: 19px;
+  height: 19px;
+  font-size: 10px;
+  opacity: 0.9;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.marker-incident {
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+}
+
+.marker-car {
+  width: 15px;
+  height: 15px;
+  font-size: 9px;
+  border-width: 1px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  opacity: 0.9;
+}
+
+.map-marker.pulse {
+  animation: markerpulse 1.4s ease-out infinite;
+}
+
+/* Flashing red/blue emergency lights on responding units. */
+.marker-unit.flashing {
+  animation: emergency-lights 0.7s steps(1, end) infinite;
+}
+
+@keyframes emergency-lights {
+  0% {
+    box-shadow: 0 0 0 2px #fff, 0 0 12px 4px rgba(224, 36, 36, 0.95);
+  }
+  50% {
+    box-shadow: 0 0 0 2px #fff, 0 0 12px 4px rgba(37, 99, 235, 0.95);
+  }
+}
+
+@keyframes markerpulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(224, 36, 36, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(224, 36, 36, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(224, 36, 36, 0);
+  }
+}
+
+/* ---- CAD dispatch panel ---- */
+.cad {
+  gap: 0.75rem;
+  max-height: 720px;
+}
+
+.cad-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.clock {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.clock-time {
+  font-size: 1.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-day {
+  color: #5a748c;
+  font-size: 0.9rem;
+}
+
+.weather-chip {
+  background: #eef4fb;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.wx-warn {
+  color: #c07a1f;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.speed {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.speed .secondary {
+  padding: 0.5rem 0.6rem;
+}
+
+.secondary.active {
+  background: #1f7ae0;
+  color: #fff;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #47617a;
+  margin-left: auto;
+}
+
+.areas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.areas-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #5a748c;
+  font-weight: 700;
+}
+
+.area-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.area-chip {
+  border: 1px solid #cdd9e6;
+  background: #f2f7fd;
+  color: #16324f;
+  border-radius: 999px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.area-chip:hover {
+  background: #1f7ae0;
+  color: #fff;
+  border-color: #1f7ae0;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.stat {
+  background: #f2f7fd;
+  border-radius: 10px;
+  padding: 0.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.stat-num {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.stat.avail .stat-num {
+  font-size: 0.9rem;
+}
+
+.stat-label {
+  font-size: 0.72rem;
+  color: #5a748c;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.section-title {
+  font-size: 0.95rem;
+  margin: 0.4rem 0 0;
+}
+
+.incident-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 230px;
+  overflow-y: auto;
+}
+
+.incident-list .empty {
+  color: #5a748c;
+  font-size: 0.9rem;
+  padding: 0.5rem 0;
+}
+
+.incident {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #f7fafd;
+  border: 1px solid #e6eef7;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+}
+
+.prio {
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  padding: 0.15rem 0.4rem;
+  flex-shrink: 0;
+}
+
+.incident-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.incident-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.incident-id {
+  color: #8195a8;
+  font-weight: 400;
+  font-size: 0.8rem;
+}
+
+.incident-meta {
+  font-size: 0.78rem;
+  color: #5a748c;
+}
+
+.status {
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.status-pending {
+  color: #c23a3a;
+}
+
+.status-assigned {
+  color: #2563eb;
+}
+
+.status-onscene {
+  color: #c07a1f;
+}
+
+.dispatch-btn {
+  border: none;
+  background: #1f7ae0;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dispatch-btn:hover {
+  background: #1667c0;
+}
+
+.radio-log {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  background: #0f1b2a;
+  color: #cfe3f7;
+  border-radius: 10px;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  max-height: 170px;
+  overflow-y: auto;
+}
+
+.radio-log li {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.traffic-log {
+  background: #14241a;
+  color: #d3f0dc;
+  max-height: 130px;
+}
+
+/* ---- Traffic & weather ---- */
+.traffic-block {
+  background: #f2f7fd;
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.traffic-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.traffic-head .section-title {
+  margin: 0;
+}
+
+.traffic-level {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.traffic-bar {
+  height: 10px;
+  background: #e1e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.traffic-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease;
+}
+
+.weather-impact {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #47617a;
+}
+
+.weather-impact.bad {
+  color: #c0521f;
+  font-weight: 600;
+}
