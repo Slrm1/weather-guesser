@@ -197,6 +197,15 @@ export default function App() {
         title: `${u.callSign} (${u.status})`,
         flashing: u.status === 'enroute' || u.status === 'onscene',
       }));
+    const carMarkers: MapMarker[] = sim.ambient.map((c) => ({
+      id: `car-${c.id}`,
+      latitude: c.lat,
+      longitude: c.lon,
+      emoji: c.yielding ? '🚙' : '🚗',
+      color: c.yielding ? '#f0c674' : '#cbd5e1',
+      kind: 'car',
+      title: c.yielding ? 'Yielding to responder' : 'Traffic',
+    }));
     const incidentMarkers: MapMarker[] = sim.incidents
       .filter((i) => i.status !== 'resolved')
       .map((i) => ({
@@ -209,8 +218,8 @@ export default function App() {
         title: `${i.id} ${i.label}`,
         pulse: i.status === 'pending' || i.status === 'assigned',
       }));
-    return [...stationMarkers, ...unitMarkers, ...incidentMarkers];
-  }, [sim.units, sim.incidents]);
+    return [...carMarkers, ...stationMarkers, ...unitMarkers, ...incidentMarkers];
+  }, [sim.units, sim.incidents, sim.ambient]);
 
   function jumpToArea(a: { lat: number; lon: number; zoom: number }) {
     mapRef.current?.flyTo({ center: [a.lon, a.lat], zoom: a.zoom, duration: 1400 });

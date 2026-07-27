@@ -4,7 +4,7 @@ export interface MapMarker {
   longitude: number;
   emoji: string;
   color: string;
-  kind: 'station' | 'unit' | 'incident';
+  kind: 'station' | 'unit' | 'incident' | 'car';
   title?: string;
   pulse?: boolean;
   /** Responding units flash red/blue emergency lights. */

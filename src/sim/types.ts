@@ -43,6 +43,16 @@ export interface Incident {
   detail: string;
 }
 
+export interface AmbientCar {
+  id: string;
+  lat: number;
+  lon: number;
+  targetLat: number;
+  targetLon: number;
+  /** True when yielding to a nearby responding unit (pulled over / stopped). */
+  yielding: boolean;
+}
+
 export interface SimState {
   minutes: number;
   units: Unit[];
@@ -52,4 +62,6 @@ export interface SimState {
   log: string[];
   trafficIndex: number;
   trafficLog: string[];
+  ambient: AmbientCar[];
+  nextCarId: number;
 }

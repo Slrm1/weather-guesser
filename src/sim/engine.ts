@@ -8,6 +8,7 @@ import {
   weatherImpactTag,
 } from './traffic';
 import type {
+  AmbientCar,
   Incident,
   IncidentCategory,
   SimState,
@@ -18,6 +19,31 @@ import type {
 const UNIT_SPEED_KMH = 55;
 const MAX_ACTIVE_INCIDENTS = 40;
 const BASE_INCIDENTS_PER_HOUR = 5;
+
+// --- Ambient traffic (Section 1: traffic as a gameplay system) ---
+const MAX_AMBIENT = 42; // performance cap on visible ambient vehicles
+const AMBIENT_SPEED_KMH = 32;
+const YIELD_KM = 0.5; // cars within this range of a responding unit pull over
+const CAR_CRASH_PER_HOUR = 0.9; // base ambient crash rate, amplified by congestion
+
+const DMV_BOUNDS = { minLat: 38.7, maxLat: 39.05, minLon: -77.4, maxLon: -76.8 };
+
+/** Travel-speed multiplier from the regional traffic index (1 = clear, ~0.45 = gridlock). */
+export function congestionFactor(trafficIndex: number): number {
+  return Math.max(0.45, 1 - 0.55 * (trafficIndex / 100));
+}
+
+/** Whether a car should yield (pull over) for a nearby responding unit. */
+export function carYields(
+  car: { lat: number; lon: number },
+  unitPositions: { lat: number; lon: number }[],
+  km: number = YIELD_KM,
+): boolean {
+  for (const p of unitPositions) {
+    if (haversineKm({ lat: car.lat, lon: car.lon }, p) <= km) return true;
+  }
+  return false;
+}
 
 const STATION_POS: Record<string, { lat: number; lon: number }> = Object.fromEntries(
   STATIONS.map((s) => [s.id, { lat: s.lat, lon: s.lon }]),
@@ -97,7 +123,9 @@ export function createInitialState(seed = 1): SimState {
     }
   }
 
-  void seed;
+  const rng = createRng(seed);
+  const ambient: AmbientCar[] = Array.from({ length: MAX_AMBIENT }, (_, i) => makeCar(i + 1, rng));
+
   return {
     minutes: 8 * 60,
     units,
@@ -107,6 +135,8 @@ export function createInitialState(seed = 1): SimState {
     log: [],
     trafficIndex: 40,
     trafficLog: [],
+    ambient,
+    nextCarId: MAX_AMBIENT + 1,
   };
 }
 
@@ -122,28 +152,29 @@ function categoryWeights(hour: number, trafficBias: number): { value: IncidentCa
   ];
 }
 
-function spawnIncident(state: SimState, rng: () => number, trafficBias: number): Incident {
-  const hotspot = pickWeighted(
-    rng,
-    HOTSPOTS.map((h) => ({ value: h, weight: h.weight })),
-  );
-  const category = pickWeighted(rng, categoryWeights(Math.floor((state.minutes / 60) % 24), trafficBias));
+/** Build a pending incident of a given category at a location (mutates nextIncidentId). */
+function buildIncident(
+  state: SimState,
+  category: IncidentCategory,
+  lat: number,
+  lon: number,
+  rng: () => number,
+): Incident {
   const priority = pickWeighted<1 | 2 | 3>(rng, [
     { value: 1, weight: 2 },
     { value: 2, weight: 4.5 },
     { value: 3, weight: 3.5 },
   ]);
   const labels = LABELS[category];
-  const label = labels[Math.floor(rng() * labels.length)];
   const id = `INC-${String(state.nextIncidentId).padStart(4, '0')}`;
   state.nextIncidentId += 1;
   return {
     id,
     category,
-    label,
+    label: labels[Math.floor(rng() * labels.length)],
     priority,
-    lat: hotspot.lat + (rng() - 0.5) * 0.04,
-    lon: hotspot.lon + (rng() - 0.5) * 0.04,
+    lat,
+    lon,
     createdMin: state.minutes,
     status: 'pending',
     requiredType: REQUIRED_TYPE[category],
@@ -151,6 +182,34 @@ function spawnIncident(state: SimState, rng: () => number, trafficBias: number):
     assignedUnitId: null,
     detail: pickDetail(category, rng),
   };
+}
+
+function spawnIncident(state: SimState, rng: () => number, trafficBias: number): Incident {
+  const hotspot = pickWeighted(
+    rng,
+    HOTSPOTS.map((h) => ({ value: h, weight: h.weight })),
+  );
+  const category = pickWeighted(rng, categoryWeights(Math.floor((state.minutes / 60) % 24), trafficBias));
+  return buildIncident(
+    state,
+    category,
+    hotspot.lat + (rng() - 0.5) * 0.04,
+    hotspot.lon + (rng() - 0.5) * 0.04,
+    rng,
+  );
+}
+
+function randInBounds(rng: () => number): { lat: number; lon: number } {
+  return {
+    lat: DMV_BOUNDS.minLat + rng() * (DMV_BOUNDS.maxLat - DMV_BOUNDS.minLat),
+    lon: DMV_BOUNDS.minLon + rng() * (DMV_BOUNDS.maxLon - DMV_BOUNDS.minLon),
+  };
+}
+
+function makeCar(id: number, rng: () => number): AmbientCar {
+  const p = randInBounds(rng);
+  const t = randInBounds(rng);
+  return { id: `car-${id}`, lat: p.lat, lon: p.lon, targetLat: t.lat, targetLon: t.lon, yielding: false };
 }
 
 function nearestAvailable(units: Unit[], incident: Incident): Unit | null {
@@ -211,7 +270,13 @@ export function tick(state: SimState, dtMin: number, ctx: TickContext): SimState
   }
   nextIncidentId = working.nextIncidentId;
 
-  const kmThisTick = UNIT_SPEED_KMH * (dtMin / 60);
+  // Regional traffic index up front — it drives both congestion and reporting.
+  const hour = Math.floor((minutes / 60) % 24);
+  const trafficIndex = trafficIndexFor(hour, trafficBias, rng);
+  const cong = congestionFactor(trafficIndex);
+
+  // Congestion slows emergency units.
+  const kmThisTick = UNIT_SPEED_KMH * (dtMin / 60) * cong;
 
   // 2. Advance each unit.
   for (const u of units) {
@@ -254,6 +319,53 @@ export function tick(state: SimState, dtMin: number, ctx: TickContext): SimState
     }
   }
 
+  // 2b. Ambient traffic: move cars, yield to responding units, occasional crashes.
+  const respondingPositions = units
+    .filter((u) => u.status === 'enroute' || u.status === 'onscene')
+    .map((u) => ({ lat: u.lat, lon: u.lon }));
+  const carKm = AMBIENT_SPEED_KMH * (dtMin / 60) * cong;
+  let ambient = state.ambient.map((c) => ({ ...c }));
+  for (const car of ambient) {
+    car.yielding = carYields(car, respondingPositions);
+    if (car.yielding) continue; // pulled over for the siren
+    const res = moveToward(
+      { lat: car.lat, lon: car.lon },
+      { lat: car.targetLat, lon: car.targetLon },
+      carKm,
+    );
+    car.lat = res.position.lat;
+    car.lon = res.position.lon;
+    if (res.arrived) {
+      const t = randInBounds(rng);
+      car.targetLat = t.lat;
+      car.targetLon = t.lon;
+    }
+  }
+
+  // Ambient crashes become real MVA (traffic) incidents — more likely in congestion.
+  let nextCarId = state.nextCarId;
+  const crashExpected = CAR_CRASH_PER_HOUR * (dtMin / 60) * (0.5 + trafficIndex / 100);
+  if (
+    rng() < crashExpected &&
+    ambient.length > 0 &&
+    working.incidents.filter((i) => i.status !== 'resolved').length < MAX_ACTIVE_INCIDENTS
+  ) {
+    const idx = Math.floor(rng() * ambient.length);
+    const crashed = ambient[idx];
+    ambient = ambient.filter((_, i) => i !== idx);
+    const inc = buildIncident(working, 'traffic', crashed.lat, crashed.lon, rng);
+    working.incidents.push(inc);
+    incidentById.set(inc.id, inc);
+    nextIncidentId = working.nextIncidentId;
+    log.unshift(`${fmtClock(minutes)}  🚗💥 MVA reported — ${inc.id} (P${inc.priority})`);
+  }
+
+  // Keep the ambient pool topped up to the cap.
+  while (ambient.length < MAX_AMBIENT) {
+    ambient.push(makeCar(nextCarId, rng));
+    nextCarId += 1;
+  }
+
   // 3. Auto-dispatch pending incidents (highest priority, oldest first).
   if (autoDispatch) {
     const pending = working.incidents
@@ -265,9 +377,7 @@ export function tick(state: SimState, dtMin: number, ctx: TickContext): SimState
     }
   }
 
-  // 4b. Traffic model: recompute the regional index and emit corridor reports.
-  const hour = Math.floor((minutes / 60) % 24);
-  const trafficIndex = trafficIndexFor(hour, trafficBias, rng);
+  // 4b. Traffic model: emit corridor congestion reports from the index above.
   const trafficLog = state.trafficLog.slice(0, 60);
   const reportChance = Math.min(0.85, dtMin / 16);
   if (rng() < reportChance) {
@@ -293,6 +403,8 @@ export function tick(state: SimState, dtMin: number, ctx: TickContext): SimState
     log: log.slice(0, 60),
     trafficIndex,
     trafficLog: trafficLog.slice(0, 60),
+    ambient,
+    nextCarId,
   };
 }
 
@@ -318,32 +430,16 @@ export function addIncidentAt(
 ): SimState {
   const hour = Math.floor((state.minutes / 60) % 24);
   const category = pickWeighted(rng, categoryWeights(hour, 0));
-  const labels = LABELS[category];
-  const label = labels[Math.floor(rng() * labels.length)];
-  const priority = pickWeighted<1 | 2 | 3>(rng, [
-    { value: 1, weight: 2 },
-    { value: 2, weight: 4 },
-    { value: 3, weight: 4 },
-  ]);
-  const incident: Incident = {
-    id: `INC-${String(state.nextIncidentId).padStart(4, '0')}`,
-    category,
-    label,
-    priority,
-    lat,
-    lon,
-    createdMin: state.minutes,
-    status: 'pending',
-    requiredType: REQUIRED_TYPE[category],
-    onSceneRemaining: ON_SCENE_MINUTES[category],
-    assignedUnitId: null,
-    detail: pickDetail(category, rng),
-  };
-  const log = [`${fmtClock(state.minutes)}  911: ${label} — ${incident.id} (P${priority})`, ...state.log];
+  const working = { ...state, nextIncidentId: state.nextIncidentId };
+  const incident = buildIncident(working, category, lat, lon, rng);
+  const log = [
+    `${fmtClock(state.minutes)}  911: ${incident.label} — ${incident.id} (P${incident.priority})`,
+    ...state.log,
+  ];
   return {
     ...state,
     incidents: [...state.incidents, incident],
-    nextIncidentId: state.nextIncidentId + 1,
+    nextIncidentId: working.nextIncidentId,
     log: log.slice(0, 60),
   };
 }

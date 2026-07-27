@@ -561,6 +561,15 @@ input[type='range'] {
   font-size: 15px;
 }
 
+.marker-car {
+  width: 15px;
+  height: 15px;
+  font-size: 9px;
+  border-width: 1px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  opacity: 0.9;
+}
+
 .map-marker.pulse {
   animation: markerpulse 1.4s ease-out infinite;
 }

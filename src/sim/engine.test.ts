@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  carYields,
+  congestionFactor,
   createInitialState,
   dispatchIncident,
   fmtClock,
@@ -54,6 +56,43 @@ describe('tick', () => {
     const s0 = createInitialState();
     const s1 = tick(s0, 30, { rng: makeRng(1) });
     expect(s1.minutes).toBe(s0.minutes + 30);
+  });
+});
+
+describe('congestionFactor', () => {
+  it('is 1 with no traffic and slower (but clamped) in gridlock', () => {
+    expect(congestionFactor(0)).toBe(1);
+    expect(congestionFactor(100)).toBeLessThan(1);
+    expect(congestionFactor(100)).toBeGreaterThanOrEqual(0.45);
+    expect(congestionFactor(80)).toBeLessThan(congestionFactor(20));
+  });
+});
+
+describe('carYields', () => {
+  const car = { lat: 38.9, lon: -77.0 };
+  it('yields when a responding unit is within range', () => {
+    expect(carYields(car, [{ lat: 38.9008, lon: -77.0008 }], 0.5)).toBe(true);
+  });
+  it('does not yield when units are far away', () => {
+    expect(carYields(car, [{ lat: 39.5, lon: -76.0 }], 0.5)).toBe(false);
+    expect(carYields(car, [], 0.5)).toBe(false);
+  });
+});
+
+describe('ambient traffic', () => {
+  it('starts with a full capped pool of cars', () => {
+    const s = createInitialState();
+    expect(s.ambient.length).toBe(42);
+    expect(s.ambient.every((c) => c.id.startsWith('car-'))).toBe(true);
+  });
+
+  it('keeps the ambient pool at the cap and moves cars over time', () => {
+    let s = createInitialState();
+    const before = s.ambient.map((c) => `${c.lat},${c.lon}`).join('|');
+    for (let i = 0; i < 30; i++) s = tick(s, 5, { rng: makeRng(500 + i) });
+    expect(s.ambient.length).toBe(42);
+    const after = s.ambient.map((c) => `${c.lat},${c.lon}`).join('|');
+    expect(after).not.toBe(before);
   });
 });
 
