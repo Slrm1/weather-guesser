@@ -17,9 +17,12 @@ Northern Virginia / Southern Maryland (DMV) region:
    dispatched, drives to the scene, works the call, then returns to quarters.
    Units and incidents animate on the map; a CAD panel shows the clock, unit
    availability, an incident queue (with manual **Dispatch**), and a radio log.
-4. **Traffic + weather** — a regional traffic index (by time-of-day, amplified
-   by live weather), a **Traffic log** of corridor congestion (I-495, I-66,
-   I-395, …), and an explicit weather→traffic impact readout.
+4. **Traffic as a gameplay system** — a performance-capped pool of ambient
+   vehicles drives along the corridors; **congestion actually slows** emergency
+   units, cars **pull over/yield** for responding units, and **ambient crashes
+   become real MVA calls**. Plus a regional traffic index (by time-of-day,
+   amplified by live weather), a **Traffic log** of corridor congestion (I-495,
+   I-66, I-395, …), and a weather→traffic impact readout.
 5. **Immersion** — a **day/night cycle** that tints the map by the sim clock
    (Day/Dawn/Dusk/Night), **live weather overlays** (rain/snow/fog) on the map,
    **flashing red/blue lights** on responding units, a clickable **incident
